@@ -1,0 +1,1877 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Binder</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Offline first Pokémon TCG binder and deck workbench">
+<meta name="theme-color" content="#F5F6F8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141720" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Binder">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png" type="image/png">
+<style>
+/* ---------- tokens ---------- */
+:root{
+  --bg:#F3F4F7; --surface:#FFFFFF; --surface2:#E9ECF2; --surface3:#DEE2EA;
+  --ink:#1A1D26; --ink2:#5A6172; --ink3:#8A90A0; --line:#D9DDE6;
+  --accent:#1B87B5; --accent-ink:#FFFFFF; --accent-soft:#DDF0F8;
+  --yellow:#F2C94C; --ok:#2C9A5A; --warn:#D07A22; --bad:#D14646;
+  --grass:#5FAE55; --fire:#E85445; --water:#3A8FDF; --lightning:#F1C232; --psychic:#A15DC0;
+  --fighting:#B36A3C; --darkness:#3B4351; --metal:#8B96A6; --fairy:#E96AA5; --dragon:#C9962F; --colorless:#D8DCE3;
+  --radius:14px; --radius-s:9px;
+  --shadow:0 1px 2px rgba(20,24,40,.06),0 8px 24px rgba(20,24,40,.07);
+  --font-display:"Avenir Next Condensed","Avenir Next","Futura","Helvetica Neue",system-ui,sans-serif;
+  --font-body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;
+  --font-mono:"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+  --tabbar-h:60px; --safe-b:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#131620; --surface:#1B1F2B; --surface2:#242938; --surface3:#2E3446;
+    --ink:#EDEFF4; --ink2:#A4AABA; --ink3:#767D90; --line:#2C3242;
+    --accent:#3FA9D8; --accent-ink:#0B1A22; --accent-soft:#183542;
+    --colorless:#4B5262; --shadow:none;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--font-body);-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+body{min-height:100dvh;overscroll-behavior-y:none}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0;padding:0}
+img{display:block;max-width:100%}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hidden{display:none!important}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--ink2)}
+.small{font-size:12.5px}
+h1,h2,h3{font-family:var(--font-display);font-weight:700;letter-spacing:.01em;margin:0}
+h1{font-size:30px;line-height:1.05}
+h2{font-size:22px;line-height:1.1}
+h3{font-size:16px;line-height:1.2;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2)}
+
+/* ---------- app shell ---------- */
+.app{display:grid;grid-template-rows:auto 1fr;min-height:100dvh}
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px));background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:.02em}
+.brand .logo{width:24px;height:32px;border-radius:4px;background:linear-gradient(160deg,var(--yellow),#E8A93A);border:2px solid #C98F1D;box-shadow:inset 0 0 0 2px #FFF3C4;position:relative}
+.brand .logo::after{content:"";position:absolute;inset:6px 4px auto 4px;height:10px;border-radius:2px;background:linear-gradient(120deg,#8ED8F5,#C7A6F0,#FFB3C7)}
+.topbar .spacer{flex:1}
+.net{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2)}
+.net i{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent)}
+.net.off i{background:var(--ink3);box-shadow:none}
+main{padding:14px 16px calc(var(--tabbar-h) + var(--safe-b) + 18px);max-width:1180px;width:100%;margin:0 auto}
+.view{display:none}.view.active{display:block}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:25;display:flex;justify-content:space-around;height:calc(var(--tabbar-h) + var(--safe-b));padding-bottom:var(--safe-b);background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line)}
+.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;color:var(--ink2);font-weight:600}
+.tabbar button svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.tabbar button.active{color:var(--accent)}
+@media (min-width:900px){
+  .app{grid-template-columns:200px 1fr;grid-template-rows:auto 1fr}
+  .topbar{grid-column:1/-1}
+  .tabbar{position:sticky;top:64px;align-self:start;flex-direction:column;justify-content:flex-start;height:auto;gap:4px;padding:16px 10px;background:none;border:0;backdrop-filter:none}
+  .tabbar button{flex:0 0 auto;flex-direction:row;justify-content:flex-start;gap:12px;padding:10px 12px;border-radius:10px;font-size:14px}
+  .tabbar button.active{background:var(--surface);box-shadow:var(--shadow)}
+  main{padding:20px 28px 40px}
+}
+
+/* ---------- controls ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:0 15px;border-radius:11px;background:var(--surface2);color:var(--ink);font-weight:600;font-size:14px;border:1px solid transparent;transition:transform .08s ease,background .15s}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent;border-color:var(--line)}
+.btn.danger{background:color-mix(in srgb,var(--bad) 12%,transparent);color:var(--bad)}
+.btn.sm{min-height:32px;padding:0 11px;font-size:13px;border-radius:9px}
+.btn.icon{width:40px;padding:0}
+.btn.icon.sm{width:32px}
+.btn[disabled]{opacity:.5;pointer-events:none}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn.wide{width:100%}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em}
+.input,select.input,textarea.input{width:100%;min-height:42px;padding:9px 12px;border-radius:11px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:16px}
+textarea.input{min-height:120px;resize:vertical;font-family:var(--font-mono);font-size:13px;line-height:1.4}
+.input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+select.input{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--ink2) 50%),linear-gradient(135deg,var(--ink2) 50%,transparent 50%);background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:34px}
+.row{display:flex;gap:10px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+.stack{display:flex;flex-direction:column;gap:12px}
+.seg{display:inline-flex;background:var(--surface2);border-radius:11px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{padding:7px 12px;border-radius:9px;font-size:13px;font-weight:600;color:var(--ink2)}
+.seg button.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:var(--surface)}
+.stepper button{width:38px;height:38px;font-size:20px;color:var(--accent);font-weight:700}
+.stepper span{min-width:34px;text-align:center;font-family:var(--font-mono);font-weight:700}
+.stepper.sm button{width:30px;height:30px;font-size:17px}
+.stepper.sm span{min-width:26px;font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;background:var(--surface2);font-size:11.5px;font-weight:600;color:var(--ink2);white-space:nowrap}
+.chip.ok{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+.chip.warn{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)}
+.chip.bad{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.chip.accent{background:var(--accent-soft);color:var(--accent)}
+.chip.mark{font-family:var(--font-mono);background:var(--surface);border:1px solid var(--line);color:var(--ink);padding:0 6px}
+.card-panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
+.stat-strip{display:flex;gap:16px;flex-wrap:wrap;margin:6px 0 14px}
+.stat{display:flex;flex-direction:column;gap:1px}
+.stat b{font-family:var(--font-display);font-size:26px;line-height:1;font-weight:700}
+.stat span{font-size:11.5px;color:var(--ink2);text-transform:uppercase;letter-spacing:.06em}
+.empty{padding:36px 20px;text-align:center;color:var(--ink2);border:1.5px dashed var(--line);border-radius:var(--radius)}
+.empty b{display:block;color:var(--ink);font-family:var(--font-display);font-size:20px;margin-bottom:6px}
+.msg{padding:10px 12px;border-radius:10px;font-size:13.5px;background:var(--surface2)}
+.msg.warn{background:color-mix(in srgb,var(--warn) 14%,transparent);color:color-mix(in srgb,var(--warn) 80%,var(--ink))}
+.msg.bad{background:color-mix(in srgb,var(--bad) 12%,transparent);color:color-mix(in srgb,var(--bad) 85%,var(--ink))}
+.msg.ok{background:color-mix(in srgb,var(--ok) 13%,transparent);color:color-mix(in srgb,var(--ok) 80%,var(--ink))}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px}
+.kv dt{color:var(--ink2)}.kv dd{margin:0}
+.divider{height:1px;background:var(--line);margin:14px 0}
+.list{display:flex;flex-direction:column}
+.list-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.list-item:last-child{border-bottom:0}
+.list-item .thumb{width:44px;height:61px;border-radius:5px;object-fit:cover;background:var(--surface2);flex:none}
+.list-item .name{font-weight:600}
+.list-item .sub{font-size:12px;color:var(--ink2)}
+.link{background:none;color:var(--accent);font-weight:600;padding:0}
+.rc-warn{font-size:12.5px;color:var(--ink2);margin-top:6px}
+
+/* ---------- binder grid ---------- */
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.toolbar .input{min-height:38px;font-size:15px}
+.toolbar select.input{min-width:150px;width:auto}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (min-width:520px){.grid{grid-template-columns:repeat(4,1fr)}}
+@media (min-width:760px){.grid{grid-template-columns:repeat(5,1fr);gap:12px}}
+@media (min-width:1100px){.grid{grid-template-columns:repeat(7,1fr)}}
+.tile{position:relative;border-radius:10px;overflow:hidden;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);text-align:left;display:flex;flex-direction:column;transition:transform .12s ease}
+.tile:hover{transform:translateY(-2px)}
+.tile .art{position:relative;aspect-ratio:63/88;background:var(--surface2);overflow:hidden}
+.tile .art img{width:100%;height:100%;object-fit:cover}
+.tile .art .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px;text-align:center;font-family:var(--font-display);font-size:13px;color:var(--ink3);line-height:1.15}
+.tile .qty{position:absolute;top:6px;right:6px;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:rgba(20,22,30,.78);color:#fff;font:700 12px/22px var(--font-mono);text-align:center;backdrop-filter:blur(4px)}
+.tile .var{position:absolute;left:6px;bottom:6px;padding:1px 6px;border-radius:6px;font:700 10px/16px var(--font-body);letter-spacing:.04em;text-transform:uppercase;background:rgba(255,255,255,.88);color:#1A1D26}
+.tile .var.reverse{background:linear-gradient(90deg,#BFEAF9,#E9C8FF,#FFD1E1);color:#26243B}
+.tile .var.holo{background:linear-gradient(90deg,#FFE7A0,#FFC3C3,#C7E0FF);color:#3A2E12}
+.tile .var.firstEdition{background:#222;color:#fff}
+.tile .meta{padding:6px 8px 7px}
+.tile .meta .n{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .meta .s{display:flex;justify-content:space-between;gap:6px;font-size:11px;color:var(--ink2);font-family:var(--font-mono);white-space:nowrap}
+.tile .meta .s>span:first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tile .meta .s .price{color:var(--ink);flex:none}
+.tile.foil .art::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 28%,rgba(255,255,255,.28) 42%,rgba(150,225,255,.32) 48%,rgba(255,150,225,.28) 54%,transparent 68%);background-size:220% 220%;background-position:100% 0;mix-blend-mode:screen;transition:background-position .9s ease}
+.tile.foil:hover .art::after{background-position:0 100%}
+@media (prefers-reduced-motion:reduce){.tile,.tile.foil .art::after,.btn{transition:none}}
+.tile.missing{opacity:.62}
+.tile.missing .art::before{content:"missing";position:absolute;z-index:1;top:6px;left:6px;padding:1px 6px;border-radius:6px;background:var(--bad);color:#fff;font:700 10px/16px var(--font-body);text-transform:uppercase}
+
+/* ---------- sheet ---------- */
+.sheet{position:fixed;inset:0;z-index:40;display:flex;align-items:flex-end;justify-content:center;background:rgba(10,12,20,.42);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);animation:fade .15s ease}
+.sheet-panel{width:100%;max-height:92dvh;background:var(--bg);border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:rise .2s ease;box-shadow:0 -10px 40px rgba(0,0,0,.25)}
+.sheet-head{display:flex;align-items:center;gap:10px;padding:12px 16px 8px}
+.sheet-head h2{flex:1;font-size:20px}
+.sheet-body{overflow:auto;padding:4px 16px calc(20px + var(--safe-b));-webkit-overflow-scrolling:touch}
+.sheet-close{width:34px;height:34px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--ink2)}
+@keyframes rise{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@media (min-width:700px){.sheet{align-items:center;padding:24px}.sheet-panel{max-width:640px;max-height:88dvh;border-radius:18px}}
+@media (prefers-reduced-motion:reduce){.sheet,.sheet-panel{animation:none}}
+
+/* ---------- card detail ---------- */
+.detail{display:grid;grid-template-columns:1fr;gap:16px}
+@media (min-width:600px){.detail{grid-template-columns:230px 1fr}}
+@media (max-width:599px){.detail .art{max-width:min(230px,58vw);margin:0 auto;width:100%}}
+.detail .art{border-radius:12px;overflow:hidden;background:var(--surface2);aspect-ratio:63/88;box-shadow:var(--shadow)}
+.detail .art img{width:100%;height:100%;object-fit:cover}
+.detail .title{font-family:var(--font-display);font-size:26px;line-height:1.05;font-weight:700}
+.detail .subtitle{color:var(--ink2);font-size:13.5px;margin-top:2px}
+.pip{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font:700 10px/1 var(--font-body);color:#fff;border:1px solid rgba(0,0,0,.15);vertical-align:middle;margin-right:2px}
+.pip.Colorless{color:#333}
+.pip.Lightning{color:#4a3a00}
+.attack{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
+.attack .cost{flex:none;min-width:40px;display:flex;flex-wrap:wrap;gap:1px;padding-top:2px}
+.attack .body{flex:1}
+.attack .body b{font-weight:700}
+.attack .dmg{font-family:var(--font-display);font-size:20px;font-weight:700;flex:none;min-width:34px;text-align:right}
+.ability .tag{font-size:11px;font-weight:700;color:var(--fire);text-transform:uppercase;letter-spacing:.06em}
+.prices{width:100%;border-collapse:collapse;font-size:13.5px}
+.prices th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2);font-weight:600;padding:4px 0}
+.prices td{padding:6px 0;border-top:1px solid var(--line);font-family:var(--font-mono)}
+.prices td:first-child{font-family:var(--font-body);font-weight:600}
+.prices tr.owned td:first-child::after{content:"owned";margin-left:6px;font-size:10px;font-weight:700;color:var(--ok);text-transform:uppercase}
+.own-rows .own-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.own-row .vn{flex:1;font-weight:600}
+.own-row select{min-height:34px;padding:4px 28px 4px 8px;font-size:13px;border-radius:8px}
+
+/* ---------- add view ---------- */
+.set-picker{position:relative}
+.set-list{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:280px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.set-list button{display:flex;width:100%;align-items:center;gap:10px;padding:8px 12px;text-align:left;border-bottom:1px solid var(--line)}
+.set-list button:last-child{border-bottom:0}
+.set-list button:hover,.set-list button.hl{background:var(--surface2)}
+.set-list img{width:26px;height:26px;object-fit:contain}
+.set-list .sn{font-weight:600;flex:1;font-size:14px}
+.set-list .sc{font-family:var(--font-mono);font-size:11.5px;color:var(--ink2)}
+.commit-row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-top:12px}
+.commit-row .btn{flex:1 1 210px;min-height:44px}
+.preview{display:flex;gap:14px;align-items:flex-start}
+.preview .art{width:110px;flex:none;aspect-ratio:63/88;border-radius:8px;overflow:hidden;background:var(--surface2)}
+.preview .art img{width:100%;height:100%;object-fit:cover}
+.preview .t{font-family:var(--font-display);font-size:22px;font-weight:700;line-height:1.05}
+.recent .list-item{padding:8px 0}
+.results{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (min-width:600px){.results{grid-template-columns:repeat(5,1fr)}}
+@media (min-width:1000px){.results{grid-template-columns:repeat(8,1fr)}}
+
+/* ---------- scanner ---------- */
+.scan-wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:3/4;max-height:70dvh}
+.scan-wrap video,.scan-wrap canvas{width:100%;height:100%;object-fit:cover}
+.scan-guide{position:absolute;inset:0;pointer-events:none}
+.scan-guide .frame{position:absolute;left:12%;right:12%;top:8%;aspect-ratio:63/88;border:2px solid rgba(255,255,255,.85);border-radius:10px;box-shadow:0 0 0 999px rgba(0,0,0,.42)}
+.scan-guide .band{position:absolute;left:0;right:0;bottom:2%;height:11%;border:2px dashed var(--yellow);border-radius:6px}
+.scan-guide .band.top{bottom:auto;top:2%;height:9%}
+.scan-guide .hint{position:absolute;left:0;right:0;bottom:6%;text-align:center;color:#fff;font-size:12.5px;text-shadow:0 1px 3px #000}
+.cands{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.cands .list-item{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+
+/* ---------- decks ---------- */
+.deck-card{display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);text-align:left;width:100%}
+.deck-card .dn{font-family:var(--font-display);font-size:19px;font-weight:700}
+.deck-card .ds{font-size:12.5px;color:var(--ink2);margin-top:2px}
+.deck-card .thumbs{display:flex;flex:none}
+.deck-card .thumbs img{width:34px;height:47px;border-radius:4px;object-fit:cover;margin-left:-14px;box-shadow:0 1px 3px rgba(0,0,0,.3);background:var(--surface2)}
+.deck-card .thumbs img:first-child{margin-left:0}
+.strip{display:grid;grid-template-columns:repeat(30,1fr);gap:2px;margin:10px 0 6px}
+.strip i{display:block;aspect-ratio:1;border-radius:2px;background:var(--surface3)}
+.strip i.Pokemon{background:var(--fire)}
+.strip i.Trainer{background:var(--accent)}
+.strip i.Energy{background:var(--yellow)}
+.strip i.over{background:var(--bad)}
+.legend{display:flex;gap:12px;font-size:12px;color:var(--ink2);flex-wrap:wrap}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.deck-layout{display:grid;grid-template-columns:1fr;gap:16px}
+@media (min-width:900px){.deck-layout{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:start}}
+.deck-group h3{margin:14px 0 4px}
+.dl-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}
+.dl-row:last-child{border-bottom:0}
+.dl-row .thumb{width:32px;height:44px;border-radius:4px;object-fit:cover;background:var(--surface2);flex:none}
+.dl-row .nm{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+.dl-row .nm .link{display:block;max-width:100%;text-align:left}
+.dl-row .nm b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dl-row .nm span{font-size:11.5px;color:var(--ink2);font-family:var(--font-mono)}
+.dl-row .own{font-size:11.5px;font-weight:700;padding:1px 6px;border-radius:6px}
+.dl-row .own.ok{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+.dl-row .own.short{background:color-mix(in srgb,var(--bad) 13%,transparent);color:var(--bad)}
+.dl-row .flag{font-size:11px;font-weight:700;color:var(--warn)}
+.pool-tabs{margin-bottom:8px}
+.pool .grid{grid-template-columns:repeat(4,1fr)}
+@media (min-width:520px){.pool .grid{grid-template-columns:repeat(5,1fr)}}
+@media (min-width:1100px){.pool .grid{grid-template-columns:repeat(5,1fr)}}
+.pool .tile .meta{padding:4px 6px 5px}
+.pool .tile .meta .s{flex-wrap:wrap;white-space:normal;gap:2px 6px}
+.pool .tile .meta .s>span:first-child{white-space:nowrap}
+.pool .tile .meta .n{font-size:11.5px}
+.deck-title{width:100%;font-family:var(--font-display);font-size:26px;font-weight:700;border:0;background:transparent;padding:4px 0;border-bottom:1.5px dashed var(--line);border-radius:0}
+.deck-title:focus{border-bottom-color:var(--accent);outline:none;box-shadow:none}
+.problems{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+
+/* ---------- settings ---------- */
+.setting{display:flex;align-items:center;flex-wrap:wrap;gap:10px 12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.setting:last-child{border-bottom:0}
+.setting .txt{flex:1 1 210px;min-width:0}
+.setting>:not(.txt){margin-left:auto}
+.setting .txt b{display:block;font-weight:600}
+.setting .txt span{font-size:12.5px;color:var(--ink2)}
+.switch{position:relative;width:46px;height:28px;border-radius:999px;background:var(--surface3);transition:background .15s;flex:none}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .15s}
+.switch.on{background:var(--ok)}
+.switch.on::after{transform:translateX(18px)}
+.about p{font-size:13.5px;color:var(--ink2);margin:6px 0}
+.about code{font-family:var(--font-mono);font-size:12px;background:var(--surface2);padding:1px 5px;border-radius:5px}
+
+/* ---------- toast ---------- */
+#toast{position:fixed;left:50%;bottom:calc(var(--tabbar-h) + var(--safe-b) + 14px);transform:translateX(-50%) translateY(20px);z-index:60;padding:10px 16px;border-radius:12px;background:var(--ink);color:var(--bg);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (min-width:900px){#toast{bottom:28px}}
+.progress{height:6px;border-radius:999px;background:var(--surface3);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="logo" aria-hidden="true"></span><span>Binder</span></div>
+    <div class="spacer"></div>
+    <div class="net" id="net" title="Connection"><i></i><span>Online</span></div>
+  </header>
+  <nav class="tabbar" id="tabbar" aria-label="Sections">
+    <button data-act="nav" data-view="collection" class="active" aria-label="Binder">
+      <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18M4 8h4M4 12h4M4 16h4"/></svg><span>Binder</span></button>
+    <button data-act="nav" data-view="add" aria-label="Add cards">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><span>Add</span></button>
+    <button data-act="nav" data-view="decks" aria-label="Decks">
+      <svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="16" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v14"/><path d="M6.5 11h6M6.5 15h6"/></svg><span>Decks</span></button>
+    <button data-act="nav" data-view="settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button>
+  </nav>
+  <main>
+    <section class="view active" id="view-collection" aria-label="Binder"></section>
+    <section class="view" id="view-add" aria-label="Add cards"></section>
+    <section class="view" id="view-decks" aria-label="Decks"></section>
+    <section class="view" id="view-settings" aria-label="Settings"></section>
+  </main>
+</div>
+<div id="sheet-root"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+'use strict';
+/* =====================================================================
+   Binder: offline first Pokémon TCG collection + deck workbench
+   Data: TCGdex (https://tcgdex.dev), prices via TCGdex (TCGplayer / Cardmarket)
+   Storage: IndexedDB in this browser. Nothing leaves the device except API lookups.
+   ===================================================================== */
+const API_BASE = 'https://api.tcgdex.net/v2/en';
+const ASSET_QUALITY = { low: '/low.webp', high: '/high.webp' };
+const DB_NAME = 'binder-db';
+const DB_VER = 1;
+const SETS_MAX_AGE = 24 * 3600 * 1000;      // refresh the set list once a day
+const PRICE_MAX_AGE = 6 * 3600 * 1000;      // "refresh all" skips prices newer than this
+const VARIANTS = [
+  { key: 'normal',       label: 'Normal',       short: 'Normal' },
+  { key: 'holo',         label: 'Holo',         short: 'Holo' },
+  { key: 'reverse',      label: 'Reverse holo', short: 'Reverse' },
+  { key: 'firstEdition', label: '1st edition',  short: '1st ed' },
+  { key: 'other',        label: 'Other finish', short: 'Other' },
+];
+const VARIANT_BY_KEY = Object.fromEntries(VARIANTS.map(v => [v.key, v]));
+const CONDITIONS = ['', 'NM', 'LP', 'MP', 'HP', 'DMG'];
+const TYPE_LETTER = { Grass: 'G', Fire: 'R', Water: 'W', Lightning: 'L', Psychic: 'P', Fighting: 'F', Darkness: 'D', Metal: 'M', Fairy: 'Y', Dragon: 'N', Colorless: 'C' };
+const FORMATS = { standard: 'Standard', expanded: 'Expanded', unlimited: 'Unlimited' };
+const BW_RELEASE = '2011-04-25'; // Expanded starts at Black & White
+const DEFAULT_SETTINGS = {
+  priceSource: 'tcgplayer',   // 'tcgplayer' (USD) or 'cardmarket' (EUR)
+  minMark: 'H',               // lowest regulation mark that is Standard legal
+  showPrices: true,
+  cacheImages: true,
+  deckMatch: 'name',          // 'name': same name from any set counts as owned, 'exact': exact card only
+};
+
+/* ---------- tiny utils ---------- */
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const now = () => Date.now();
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+const cmpNum = (a, b) => {
+  // localId sort: numbers first by value, then alphanumerics (TG05, SV049, GG12)
+  const na = /^\d+$/.test(a), nb = /^\d+$/.test(b);
+  if (na && nb) return Number(a) - Number(b);
+  if (na) return -1; if (nb) return 1;
+  return String(a).localeCompare(String(b), undefined, { numeric: true });
+};
+function fmtMoney(v, unit) {
+  if (v == null || isNaN(v)) return '';
+  const cur = /^[A-Z]{3}$/.test(String(unit)) ? String(unit) : (unit === 'EUR' ? 'EUR' : 'USD');
+  try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur, minimumFractionDigits: 2 }).format(v); }
+  catch { return (cur === 'EUR' ? '€' : '$') + Number(v).toFixed(2); }
+}
+function fmtAge(ts) {
+  if (!ts) return 'never';
+  const t = typeof ts === 'number' ? ts : Date.parse(ts);
+  if (!t) return 'unknown';
+  const d = now() - t;
+  if (d < 60e3) return 'just now';
+  if (d < 3600e3) return Math.round(d / 60e3) + ' min ago';
+  if (d < 86400e3) return Math.round(d / 3600e3) + ' h ago';
+  return Math.round(d / 86400e3) + ' d ago';
+}
+function pip(type) {
+  const t = String(type || 'Colorless');
+  return `<i class="pip ${esc(t)}" style="background:var(--${esc(t.toLowerCase())},var(--colorless))" title="${esc(t)}">${TYPE_LETTER[t] || t[0]}</i>`;
+}
+function toast(msg, ms = 2200) {
+  const el = $('#toast'); if (!el) return;
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+/* ---------- IndexedDB ---------- */
+function openDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, DB_VER);
+    r.onupgradeneeded = e => {
+      const db = e.target.result;
+      const mk = (name, opts, idx) => { if (!db.objectStoreNames.contains(name)) { const st = db.createObjectStore(name, opts); (idx || []).forEach(([n, k]) => st.createIndex(n, k)); } };
+      mk('cards', { keyPath: 'id' });
+      mk('owned', { keyPath: 'key' }, [['cardId', 'cardId']]);
+      mk('decks', { keyPath: 'id' });
+      mk('sets', { keyPath: 'id' });
+      mk('images', { keyPath: 'cardId' });
+      mk('meta', { keyPath: 'k' });
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.onblocked = () => rej(new Error('Database blocked by another tab'));
+  });
+}
+let dbPromise = null;
+const getDB = () => (dbPromise ||= openDB());
+function tx(store, mode, fn) {
+  return getDB().then(db => new Promise((res, rej) => {
+    const t = db.transaction(store, mode);
+    let out;
+    try { out = fn(t.objectStore(store)); } catch (e) { rej(e); return; }
+    t.oncomplete = () => res(out && typeof out === 'object' && 'result' in out ? out.result : out);
+    t.onerror = () => rej(t.error);
+    t.onabort = () => rej(t.error || new Error('Transaction aborted'));
+  }));
+}
+const dbGet = (s, k) => tx(s, 'readonly', st => st.get(k));
+const dbAll = s => tx(s, 'readonly', st => st.getAll());
+const dbPut = (s, v) => tx(s, 'readwrite', st => st.put(v));
+const dbPutMany = (s, vals) => tx(s, 'readwrite', st => { vals.forEach(v => st.put(v)); return null; });
+const dbDel = (s, k) => tx(s, 'readwrite', st => st.delete(k));
+const dbClear = s => tx(s, 'readwrite', st => st.clear());
+const metaGet = async k => (await dbGet('meta', k))?.v;
+const metaSet = (k, v) => dbPut('meta', { k, v });
+
+/* ---------- state ---------- */
+const S = {
+  sets: [],                 // SetBrief[] in release order (oldest first), each may carry .detail
+  setsById: new Map(),
+  cards: new Map(),         // cardId -> normalized card (with pricing)
+  owned: new Map(),         // key -> {key, cardId, variant, qty, condition, note, addedAt, updatedAt}
+  decks: new Map(),         // id -> deck
+  images: new Map(),        // cardId -> object URL for cached low res image
+  settings: { ...DEFAULT_SETTINGS },
+  online: typeof navigator !== 'undefined' ? navigator.onLine !== false : true,
+  view: 'collection',
+  ui: {
+    collection: { q: '', set: '', variant: '', cat: '', sort: 'recent' },
+    add: { mode: 'set', setId: '', number: '', card: null, variant: 'normal', qty: 1, cond: '', note: '', busy: false, error: '', results: [], q: '' },
+    deck: { id: null, pool: 'binder', q: '', results: [], busy: false, filterLegal: true },
+    setsListOpen: false,
+  },
+};
+
+/* ---------- API ---------- */
+async function apiGet(path, { timeout = 15000 } = {}) {
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const t = ctrl && setTimeout(() => ctrl.abort(), timeout);
+  try {
+    const r = await fetch(API_BASE + path, { signal: ctrl?.signal, headers: { Accept: 'application/json' } });
+    if (r.status === 404) { const e = new Error('Not found'); e.code = 404; throw e; }
+    if (!r.ok) throw new Error(`TCGdex returned ${r.status}`);
+    return await r.json();
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('The card database took too long to answer');
+    if (e.code === 404) throw e;
+    if (!S.online) throw new Error('You are offline. Cached cards still work; new lookups need a connection.');
+    throw new Error(e.message || 'Could not reach the card database');
+  } finally { if (t) clearTimeout(t); }
+}
+
+/* ---------- sets ---------- */
+function setOrderIndex(setId) { const s = S.setsById.get(setId); return s ? s.order : -1; }
+async function loadSetsFromApi() {
+  const list = await apiGet('/sets');
+  if (!Array.isArray(list) || !list.length) throw new Error('Set list came back empty');
+  const merged = list.map((b, i) => {
+    const prev = S.setsById.get(b.id) || {};
+    return { ...prev, id: b.id, name: b.name, logo: b.logo || prev.logo, symbol: b.symbol || prev.symbol, cardCount: b.cardCount || prev.cardCount || {}, order: i };
+  });
+  S.sets = merged; S.setsById = new Map(merged.map(s => [s.id, s]));
+  await dbPutMany('sets', merged);
+  await metaSet('setsFetchedAt', now());
+  return merged;
+}
+async function ensureSets({ force = false } = {}) {
+  if (S.sets.length && !force) return S.sets;
+  if (!S.online) throw new Error('The set list is not cached yet. Connect once so it can be downloaded.');
+  return loadSetsFromApi();
+}
+async function refreshSetsIfStale() {
+  try {
+    const at = await metaGet('setsFetchedAt');
+    if (!S.sets.length || !at || now() - at > SETS_MAX_AGE) await loadSetsFromApi();
+  } catch (e) { console.warn('Set refresh skipped:', e.message); }
+}
+async function getSetDetail(setId, { force = false } = {}) {
+  let s = S.setsById.get(setId);
+  if (s?.detail && !force) return s;
+  const d = await apiGet('/sets/' + encodeURIComponent(setId));
+  if (!s) { s = { id: d.id, name: d.name, logo: d.logo, symbol: d.symbol, cardCount: d.cardCount || {}, order: S.sets.length }; S.sets.push(s); S.setsById.set(s.id, s); }
+  s.name = d.name || s.name; s.logo = d.logo || s.logo; s.symbol = d.symbol || s.symbol; s.cardCount = d.cardCount || s.cardCount;
+  s.detail = {
+    tcgOnline: d.tcgOnline || null, releaseDate: d.releaseDate || null, serie: d.serie || null, legal: d.legal || null,
+    cards: (d.cards || []).map(c => ({ id: c.id, localId: String(c.localId), name: c.name, image: c.image || null })),
+    fetchedAt: now(),
+  };
+  await dbPut('sets', s);
+  return s;
+}
+function setCode(setId) {
+  const s = S.setsById.get(setId);
+  return s?.detail?.tcgOnline || (setId || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+function findSetByCode(code) {
+  const c = String(code || '').toUpperCase();
+  return S.sets.find(s => (s.detail?.tcgOnline || '').toUpperCase() === c) || null;
+}
+/* Resolve a PTCGL / PTCGO set code (SVI, MEW, PAR...) by walking newest sets first and caching their details. */
+async function resolveSetCode(code, { limit = 60 } = {}) {
+  const hit = findSetByCode(code); if (hit) return hit;
+  if (!S.online) return null;
+  const candidates = [...S.sets].reverse().filter(s => !s.detail).slice(0, limit);
+  for (const s of candidates) {
+    try { await getSetDetail(s.id); } catch (e) { continue; }
+    if ((s.detail?.tcgOnline || '').toUpperCase() === String(code).toUpperCase()) return s;
+  }
+  return null;
+}
+
+/* ---------- cards ---------- */
+function normalizeCard(raw) {
+  const set = raw.set || {};
+  const c = {
+    id: raw.id,
+    localId: String(raw.localId ?? ''),
+    name: raw.name || '',
+    category: raw.category || 'Pokemon',
+    image: raw.image || null,
+    setId: set.id || String(raw.id || '').split('-')[0],
+    setName: set.name || '',
+    setOfficial: set.cardCount?.official ?? null,
+    setTotal: set.cardCount?.total ?? null,
+    rarity: raw.rarity || null,
+    illustrator: raw.illustrator || null,
+    variants: raw.variants || null,
+    hp: raw.hp ?? null,
+    types: raw.types || [],
+    evolveFrom: raw.evolveFrom || null,
+    stage: raw.stage || null,
+    suffix: raw.suffix || null,
+    dexId: raw.dexId || null,
+    description: raw.description || null,
+    abilities: raw.abilities || [],
+    attacks: raw.attacks || [],
+    weaknesses: raw.weaknesses || [],
+    resistances: raw.resistances || [],
+    retreat: raw.retreat ?? null,
+    regulationMark: raw.regulationMark || null,
+    legal: raw.legal || null,
+    trainerType: raw.trainerType || null,
+    energyType: raw.energyType || null,
+    effect: raw.effect || null,
+    updated: raw.updated || null,
+    pricing: raw.pricing || null,
+    pricingAt: raw.pricing ? now() : null,
+    fetchedAt: now(),
+  };
+  if (!c.setName) { const s = S.setsById.get(c.setId); if (s) { c.setName = s.name; c.setOfficial = s.cardCount?.official ?? null; } }
+  return c;
+}
+async function saveCard(card) { S.cards.set(card.id, card); await dbPut('cards', card); ensureSetCodeBg(card.setId); return card; }
+const setDetailQueue = new Set();
+function ensureSetCodeBg(setId) {
+  const s = S.setsById.get(setId);
+  if (!setId || !s || s.detail || setDetailQueue.has(setId) || !S.online) return;
+  setDetailQueue.add(setId);
+  getSetDetail(setId).then(() => {
+    // codes just became known: refresh whatever grid is showing, without touching inputs
+    if (S.view === 'collection') renderBinderGrid?.();
+    if (S.view === 'add') renderRecent?.();
+    if (S.view === 'decks' && S.ui.deck.id && $('#deck-main')) { const d = S.decks.get(S.ui.deck.id); if (d) { renderDeckMain(d); renderPool(d); } }
+  }).catch(() => { }).finally(() => setDetailQueue.delete(setId));
+}
+async function fetchCardRaw(setId, localId) { return apiGet(`/sets/${encodeURIComponent(setId)}/${encodeURIComponent(localId)}`); }
+async function getCard(setId, localId, { force = false } = {}) {
+  const guess = `${setId}-${localId}`;
+  if (!force && S.cards.has(guess)) return S.cards.get(guess);
+  const raw = await fetchCardRaw(setId, localId);
+  const card = normalizeCard(raw);
+  await saveCard(card);
+  cacheImage(card);
+  return card;
+}
+async function getCardById(id, { force = false } = {}) {
+  if (!force && S.cards.has(id)) return S.cards.get(id);
+  const raw = await apiGet('/cards/' + encodeURIComponent(id));
+  const card = normalizeCard(raw);
+  await saveCard(card);
+  cacheImage(card);
+  return card;
+}
+async function refreshCard(id) {
+  const old = S.cards.get(id);
+  try {
+    const raw = await apiGet('/cards/' + encodeURIComponent(id));
+    const fresh = normalizeCard(raw);
+    if (!fresh.pricing && old?.pricing) { fresh.pricing = old.pricing; fresh.pricingAt = old.pricingAt; }
+    await saveCard(fresh);
+    return fresh;
+  } catch (e) { throw e; }
+}
+async function searchCardsByName(q) {
+  const list = await apiGet(`/cards?name=${encodeURIComponent(q)}&pagination:page=1&pagination:itemsPerPage=250`);
+  const arr = Array.isArray(list) ? list : [];
+  // newest sets first
+  return arr.map(b => ({ id: b.id, localId: String(b.localId), name: b.name, image: b.image || null, setId: String(b.id).split('-')[0] }))
+    .sort((a, b) => setOrderIndex(b.setId) - setOrderIndex(a.setId) || cmpNum(a.localId, b.localId));
+}
+function localSearch(q) {
+  const n = norm(q); if (!n) return [];
+  return [...S.cards.values()].filter(c => norm(c.name).includes(n)).sort((a, b) => setOrderIndex(b.setId) - setOrderIndex(a.setId) || cmpNum(a.localId, b.localId));
+}
+
+/* ---------- images ---------- */
+function imgUrl(card, quality = 'low') { return card?.image ? card.image + ASSET_QUALITY[quality] : null; }
+function imgSrc(card) {
+  if (!card) return null;
+  if (S.images.has(card.id)) return S.images.get(card.id);
+  return S.online ? imgUrl(card, 'low') : null;
+}
+const imageQueue = new Set();
+async function cacheImage(card) {
+  if (!card?.image || !S.settings.cacheImages || S.images.has(card.id) || imageQueue.has(card.id) || !S.online) return;
+  imageQueue.add(card.id);
+  try {
+    const r = await fetch(imgUrl(card, 'low'));
+    if (!r.ok) throw new Error('image ' + r.status);
+    const blob = await r.blob();
+    await dbPut('images', { cardId: card.id, blob, savedAt: now() });
+    S.images.set(card.id, URL.createObjectURL(blob));
+  } catch (e) { /* offline or missing art: fine */ }
+  finally { imageQueue.delete(card.id); }
+}
+async function cacheMissingImages() {
+  const ids = new Set([...S.owned.values()].map(o => o.cardId));
+  for (const d of S.decks.values()) d.cards.forEach(c => ids.add(c.cardId));
+  let n = 0;
+  for (const id of ids) { const c = S.cards.get(id); if (c && !S.images.has(id)) { await cacheImage(c); n++; } }
+  return n;
+}
+
+/* ---------- pricing ---------- */
+const TCG_KEYS = {
+  normal: ['normal', 'unlimited'],
+  holo: ['holofoil', 'unlimited-holofoil', 'holo'],
+  reverse: ['reverse-holofoil', 'reverse', 'reverse-holo'],
+  firstEdition: ['1st-edition-holofoil', '1st-edition', '1st-edition-normal'],
+  other: ['normal', 'holofoil', 'reverse-holofoil'],
+};
+function tcgVariantKeys(tp) { return Object.keys(tp || {}).filter(k => k !== 'updated' && k !== 'unit' && tp[k] && typeof tp[k] === 'object'); }
+function tcgKeyFor(variant, tp) {
+  if (!tp) return null;
+  for (const k of (TCG_KEYS[variant] || TCG_KEYS.normal)) if (tp[k]) return k;
+  const keys = tcgVariantKeys(tp); return keys[0] || null;
+}
+function tcgPrice(tp, variant) {
+  const k = tcgKeyFor(variant, tp); if (!k) return null;
+  const v = tp[k]; const val = v.marketPrice ?? v.midPrice ?? v.lowPrice ?? v.directLowPrice;
+  if (val == null) return null;
+  return { value: Number(val), unit: /^[A-Z]{3}$/.test(String(tp.unit)) ? tp.unit : 'USD', source: 'TCGplayer', kind: k, updated: tp.updated };
+}
+function cmPrice(cm, variant) {
+  if (!cm) return null;
+  const foil = variant !== 'normal';
+  const val = foil ? (cm['trend-holo'] ?? cm['avg-holo'] ?? cm['avg7-holo'] ?? cm['avg30-holo'] ?? cm.trend ?? cm.avg) : (cm.trend ?? cm.avg ?? cm.avg7 ?? cm.avg30 ?? cm.low);
+  if (val == null) return null;
+  return { value: Number(val), unit: /^[A-Z]{3}$/.test(String(cm.unit)) ? cm.unit : 'EUR', source: 'Cardmarket', kind: foil ? 'holo' : 'normal', updated: cm.updated };
+}
+function priceFor(card, variant = 'normal') {
+  const p = card?.pricing; if (!p) return null;
+  const order = S.settings.priceSource === 'cardmarket' ? [cmPrice.bind(null, p.cardmarket), tcgPrice.bind(null, p.tcgplayer)] : [tcgPrice.bind(null, p.tcgplayer), cmPrice.bind(null, p.cardmarket)];
+  for (const f of order) { const r = f(variant); if (r) return r; }
+  return null;
+}
+function priceLabel(card, variant) { const p = priceFor(card, variant); return p ? fmtMoney(p.value, p.unit) : ''; }
+function variantLabel(v) { return VARIANT_BY_KEY[v]?.label || v; }
+function tcgKindLabel(k) {
+  return ({ normal: 'Normal', holofoil: 'Holo', 'reverse-holofoil': 'Reverse holo', reverse: 'Reverse holo', 'reverse-holo': 'Reverse holo', '1st-edition-holofoil': '1st ed. holo', '1st-edition': '1st edition', '1st-edition-normal': '1st edition', unlimited: 'Unlimited', 'unlimited-holofoil': 'Unlimited holo', holo: 'Holo' })[k] || k;
+}
+
+/* ---------- owned ---------- */
+const ownedKey = (cardId, variant) => `${cardId}|${variant}`;
+function ownedEntries(cardId) { return VARIANTS.map(v => S.owned.get(ownedKey(cardId, v.key))).filter(Boolean); }
+function ownedQty(cardId) { return ownedEntries(cardId).reduce((n, o) => n + (o.qty || 0), 0); }
+function ownedByName() {
+  const m = new Map();
+  for (const o of S.owned.values()) { const c = S.cards.get(o.cardId); if (!c) continue; const k = norm(c.name); m.set(k, (m.get(k) || 0) + (o.qty || 0)); }
+  return m;
+}
+async function setOwned(cardId, variant, qty, extra = {}) {
+  const key = ownedKey(cardId, variant);
+  const prev = S.owned.get(key);
+  if (qty <= 0) { if (prev) { S.owned.delete(key); await dbDel('owned', key); } return null; }
+  const rec = { key, cardId, variant, qty, condition: extra.condition ?? prev?.condition ?? '', note: extra.note ?? prev?.note ?? '', addedAt: prev?.addedAt || now(), updatedAt: now() };
+  S.owned.set(key, rec); await dbPut('owned', rec);
+  requestPersistence();
+  return rec;
+}
+async function bumpOwned(cardId, variant, delta) {
+  const key = ownedKey(cardId, variant); const prev = S.owned.get(key);
+  return setOwned(cardId, variant, (prev?.qty || 0) + delta);
+}
+function collectionValue() {
+  let total = 0, unit = null;
+  for (const o of S.owned.values()) { const c = S.cards.get(o.cardId); const p = priceFor(c, o.variant); if (p) { total += p.value * o.qty; unit ||= p.unit; } }
+  return { total, unit: unit || (S.settings.priceSource === 'cardmarket' ? 'EUR' : 'USD') };
+}
+let persistenceAsked = false;
+async function requestPersistence() {
+  if (persistenceAsked || !navigator.storage?.persist) return; persistenceAsked = true;
+  try { await navigator.storage.persist(); } catch { }
+}
+
+/* ---------- decks ---------- */
+async function saveDeck(deck) { deck.updatedAt = now(); S.decks.set(deck.id, deck); await dbPut('decks', deck); return deck; }
+async function newDeck(name = 'New deck', format = 'standard') {
+  const d = { id: uid(), name, format, cards: [], notes: '', createdAt: now(), updatedAt: now() };
+  await saveDeck(d); return d;
+}
+async function deleteDeck(id) { S.decks.delete(id); await dbDel('decks', id); }
+async function deckSetQty(deck, cardId, qty) {
+  const i = deck.cards.findIndex(c => c.cardId === cardId);
+  if (qty <= 0) { if (i >= 0) deck.cards.splice(i, 1); }
+  else if (i >= 0) deck.cards[i].qty = qty; else deck.cards.push({ cardId, qty });
+  await saveDeck(deck);
+}
+function deckCount(deck) { return deck.cards.reduce((n, c) => n + c.qty, 0); }
+
+/* ---------- settings + persistence of state ---------- */
+async function saveSettings() { await metaSet('settings', S.settings); }
+async function loadState() {
+  const [sets, cards, owned, decks, images, settings] = await Promise.all([dbAll('sets'), dbAll('cards'), dbAll('owned'), dbAll('decks'), dbAll('images'), metaGet('settings')]);
+  S.sets = (sets || []).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)); S.setsById = new Map(S.sets.map(s => [s.id, s]));
+  S.cards = new Map((cards || []).map(c => [c.id, c]));
+  S.owned = new Map((owned || []).map(o => [o.key, o]));
+  S.decks = new Map((decks || []).map(d => [d.id, d]));
+  for (const im of images || []) { try { S.images.set(im.cardId, URL.createObjectURL(im.blob)); } catch { } }
+  S.settings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+}
+
+/* ---------- sheet + toast ---------- */
+function openSheet(title, bodyHtml, { onClose } = {}) {
+  const root = $('#sheet-root'); if (!root) return;
+  root.innerHTML = `<div class="sheet" data-act="sheet-backdrop" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="sheet-panel"><div class="sheet-head"><h2>${esc(title)}</h2><button class="sheet-close" data-act="close-sheet" aria-label="Close">✕</button></div><div class="sheet-body" id="sheet-body">${bodyHtml}</div></div></div>`;
+  root._onClose = onClose || null; root.dataset.card = '';
+  document.body.style.overflow = 'hidden';
+}
+function sheetShowing(cardId) { const root = $('#sheet-root'); return !!root && root.dataset.card === cardId && !!$('#sheet-body'); }
+function sheetBody() { return $('#sheet-body'); }
+function closeSheet() {
+  const root = $('#sheet-root'); if (!root) return;
+  const cb = root._onClose; root._onClose = null; root.innerHTML = ''; document.body.style.overflow = '';
+  stopScanner();
+  if (cb) cb();
+}
+/* =====================================================================
+   Views
+   ===================================================================== */
+function setView(v) {
+  S.view = v;
+  $$('.view').forEach(el => el.classList.toggle('active', el.id === 'view-' + v));
+  $$('#tabbar button').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  render();
+  window.scrollTo({ top: 0 });
+}
+function render() {
+  const v = S.view;
+  if (v === 'collection') renderCollection();
+  else if (v === 'add') renderAdd();
+  else if (v === 'decks') renderDecks();
+  else if (v === 'settings') renderSettings();
+  updateNet();
+}
+function updateNet() {
+  const el = $('#net'); if (!el) return;
+  el.classList.toggle('off', !S.online);
+  el.querySelector('span').textContent = S.online ? 'Online' : 'Offline';
+}
+
+/* ---------- shared tile ---------- */
+function cardTile(card, { qty, variant, extra = '', act = 'open-card', data = '', missing = false, showPrice = true, price } = {}) {
+  const src = imgSrc(card);
+  const foil = variant && variant !== 'normal' && variant !== 'other';
+  const p = showPrice && S.settings.showPrices ? (price ?? priceLabel(card, variant || 'normal')) : '';
+  return `<button class="tile ${foil ? 'foil' : ''} ${missing ? 'missing' : ''}" data-act="${act}" data-id="${esc(card.id)}" ${data} aria-label="${esc(card.name)}">
+    <div class="art">${src ? `<img loading="lazy" src="${esc(src)}" alt="">` : `<div class="ph">${esc(card.name)}</div>`}
+      ${qty != null ? `<span class="qty">×${qty}</span>` : ''}
+      ${variant && variant !== 'normal' ? `<span class="var ${esc(variant)}">${esc(VARIANT_BY_KEY[variant]?.short || variant)}</span>` : ''}
+    </div>
+    <div class="meta"><div class="n">${esc(card.name)}</div><div class="s"><span>${esc(setCode(card.setId))} ${esc(card.localId)}</span><span class="price">${esc(p)}</span></div>${extra}</div>
+  </button>`;
+}
+
+/* =====================================================================
+   Binder view
+   ===================================================================== */
+function collectionRows() {
+  const u = S.ui.collection; const q = norm(u.q);
+  let rows = [];
+  for (const o of S.owned.values()) {
+    const c = S.cards.get(o.cardId); if (!c) continue;
+    if (u.set && c.setId !== u.set) continue;
+    if (u.variant && o.variant !== u.variant) continue;
+    if (u.cat && c.category !== u.cat) continue;
+    if (q && !(norm(c.name).includes(q) || norm(c.setName).includes(q) || norm(setCode(c.setId)).includes(q) || c.localId === u.q.trim())) continue;
+    rows.push({ o, c, p: priceFor(c, o.variant) });
+  }
+  const sorters = {
+    recent: (a, b) => b.o.updatedAt - a.o.updatedAt,
+    name: (a, b) => a.c.name.localeCompare(b.c.name) || cmpNum(a.c.localId, b.c.localId),
+    set: (a, b) => setOrderIndex(b.c.setId) - setOrderIndex(a.c.setId) || cmpNum(a.c.localId, b.c.localId),
+    value: (a, b) => ((b.p?.value || 0) * b.o.qty) - ((a.p?.value || 0) * a.o.qty),
+    qty: (a, b) => b.o.qty - a.o.qty,
+  };
+  rows.sort(sorters[u.sort] || sorters.recent);
+  return rows;
+}
+function renderCollection() {
+  const el = $('#view-collection'); const u = S.ui.collection;
+  const totalQty = [...S.owned.values()].reduce((n, o) => n + o.qty, 0);
+  const unique = new Set([...S.owned.values()].map(o => o.cardId)).size;
+  const val = collectionValue();
+  const setsInBinder = [...new Set([...S.owned.values()].map(o => S.cards.get(o.cardId)?.setId).filter(Boolean))].sort((a, b) => setOrderIndex(b) - setOrderIndex(a));
+  el.innerHTML = `
+    <div class="row" style="align-items:flex-end;flex-wrap:wrap;gap:8px 16px">
+      <h1>Your binder</h1>
+      <div class="spacer grow"></div>
+      ${S.owned.size ? `<button class="btn sm ghost" data-act="refresh-all-prices" ${S.online ? '' : 'disabled'}>Refresh prices</button>` : ''}
+    </div>
+    <div class="stat-strip">
+      <div class="stat"><b>${totalQty}</b><span>cards</span></div>
+      <div class="stat"><b>${unique}</b><span>unique</span></div>
+      ${S.settings.showPrices ? `<div class="stat"><b>${esc(fmtMoney(val.total, val.unit) || '—')}</b><span>est. value</span></div>` : ''}
+    </div>
+    ${S.owned.size ? `
+    <div class="toolbar">
+      <input class="input grow" id="col-q" type="search" placeholder="Search name, set, number" value="${esc(u.q)}" autocomplete="off">
+      <select class="input" id="col-set" style="max-width:190px" aria-label="Filter by set"><option value="">All sets</option>${setsInBinder.map(id => `<option value="${esc(id)}" ${u.set === id ? 'selected' : ''}>${esc(S.setsById.get(id)?.name || id)}</option>`).join('')}</select>
+      <select class="input" id="col-variant" style="max-width:150px" aria-label="Filter by finish"><option value="">All finishes</option>${VARIANTS.map(v => `<option value="${v.key}" ${u.variant === v.key ? 'selected' : ''}>${v.label}</option>`).join('')}</select>
+      <select class="input" id="col-cat" style="max-width:140px" aria-label="Filter by type"><option value="">All types</option><option value="Pokemon" ${u.cat === 'Pokemon' ? 'selected' : ''}>Pokémon</option><option value="Trainer" ${u.cat === 'Trainer' ? 'selected' : ''}>Trainer</option><option value="Energy" ${u.cat === 'Energy' ? 'selected' : ''}>Energy</option></select>
+      <select class="input" id="col-sort" style="max-width:190px;min-width:172px" aria-label="Sort"><option value="recent" ${u.sort === 'recent' ? 'selected' : ''}>Recently added</option><option value="name" ${u.sort === 'name' ? 'selected' : ''}>Name</option><option value="set" ${u.sort === 'set' ? 'selected' : ''}>Set and number</option><option value="value" ${u.sort === 'value' ? 'selected' : ''}>Value</option><option value="qty" ${u.sort === 'qty' ? 'selected' : ''}>Quantity</option></select>
+    </div>
+    <div id="binder-grid"></div>` : `
+    <div class="empty"><b>Nothing sleeved yet</b>Add your first card from the Add tab: pick the set, type the number, choose the finish. Everything else fills itself in.<br><br><button class="btn primary" data-act="nav" data-view="add">Add a card</button></div>`}`;
+  if (S.owned.size) {
+    renderBinderGrid();
+    $('#col-q').addEventListener('input', debounce(e => { u.q = e.target.value; renderBinderGrid(); }, 120));
+    ['set', 'variant', 'cat', 'sort'].forEach(k => $('#col-' + k).addEventListener('change', e => { u[k] = e.target.value; renderBinderGrid(); }));
+  }
+}
+function renderBinderGrid() {
+  const g = $('#binder-grid'); if (!g) return;
+  const rows = collectionRows();
+  if (!rows.length) { g.innerHTML = `<div class="empty">No cards match those filters.</div>`; return; }
+  g.innerHTML = `<div class="grid">${rows.map(r => cardTile(r.c, { qty: r.o.qty, variant: r.o.variant })).join('')}</div>`;
+}
+
+/* =====================================================================
+   Card detail sheet
+   ===================================================================== */
+function markChip(card) {
+  const m = card.regulationMark;
+  if (m) return `<span class="chip mark" title="Regulation mark">${esc(m)}</span>`;
+  return '';
+}
+function legalityChips(card) {
+  const std = standardLegality(card);
+  const out = [];
+  if (std.state === 'legal') out.push('<span class="chip ok"' + (std.reason ? ' title="' + esc(std.reason) + '"' : '') + '>Standard' + (std.via ? ' (reprint)' : '') + '</span>');
+  else if (std.state === 'unknown') out.push('<span class="chip warn" title="' + esc(std.reason) + '">Standard?</span>');
+  if (card.legal?.expanded || expandedLegal(card)) out.push('<span class="chip">Expanded</span>');
+  return out.join(' ');
+}
+function priceTable(card) {
+  const p = card.pricing; if (!p) return `<div class="msg">No market data for this card yet${S.online ? '' : ' (offline)'}.</div>`;
+  const rows = [];
+  const ownedVariants = new Set(ownedEntries(card.id).map(o => o.variant));
+  if (p.tcgplayer) {
+    for (const k of tcgVariantKeys(p.tcgplayer)) {
+      const v = p.tcgplayer[k];
+      const ownedHere = [...ownedVariants].some(ov => tcgKeyFor(ov, p.tcgplayer) === k);
+      rows.push(`<tr class="${ownedHere ? 'owned' : ''}"><td>${esc(tcgKindLabel(k))}</td><td>${esc(fmtMoney(v.marketPrice, p.tcgplayer.unit || 'USD') || '—')}</td><td>${esc(fmtMoney(v.lowPrice, p.tcgplayer.unit || 'USD') || '—')}</td><td>${esc(fmtMoney(v.midPrice, p.tcgplayer.unit || 'USD') || '—')}</td><td class="small muted">TCGplayer</td></tr>`);
+    }
+  }
+  if (p.cardmarket) {
+    const cm = p.cardmarket, u = cm.unit || 'EUR';
+    if (cm.trend != null || cm.avg != null) rows.push(`<tr class="${ownedVariants.has('normal') ? 'owned' : ''}"><td>Normal</td><td>${esc(fmtMoney(cm.trend ?? cm.avg, u))}</td><td>${esc(fmtMoney(cm.low, u) || '—')}</td><td>${esc(fmtMoney(cm.avg7, u) || '—')}</td><td class="small muted">Cardmarket</td></tr>`);
+    if (cm['trend-holo'] != null || cm['avg-holo'] != null) rows.push(`<tr class="${[...ownedVariants].some(v => v !== 'normal') ? 'owned' : ''}"><td>Foil</td><td>${esc(fmtMoney(cm['trend-holo'] ?? cm['avg-holo'], u))}</td><td>${esc(fmtMoney(cm['low-holo'], u) || '—')}</td><td>${esc(fmtMoney(cm['avg7-holo'], u) || '—')}</td><td class="small muted">Cardmarket</td></tr>`);
+  }
+  if (!rows.length) return `<div class="msg">No market data for this card yet.</div>`;
+  const upd = p.tcgplayer?.updated || p.cardmarket?.updated;
+  return `<table class="prices"><thead><tr><th>Finish</th><th>Market</th><th>Low</th><th>Mid / 7d</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table>
+    <div class="rc-warn">Prices${upd ? ' dated ' + esc(new Date(upd).toLocaleDateString()) : ''}, fetched ${esc(fmtAge(card.pricingAt))}. Cardmarket "foil" covers holo and reverse together.</div>`;
+}
+function attackHtml(a) {
+  return `<div class="attack"><div class="cost">${(a.cost || []).map(pip).join('')}</div><div class="body"><b>${esc(a.name)}</b>${a.effect ? `<div class="small muted">${esc(a.effect)}</div>` : ''}</div>${a.damage != null && a.damage !== '' ? `<div class="dmg">${esc(a.damage)}</div>` : ''}</div>`;
+}
+function cardFacts(card) {
+  const parts = [];
+  if (card.category === 'Pokemon') {
+    parts.push(`<div class="row wrap" style="gap:8px 14px;margin:8px 0 6px">${card.hp ? `<span><b class="mono">${esc(card.hp)}</b> <span class="muted small">HP</span></span>` : ''}${(card.types || []).map(t => `<span>${pip(t)} ${esc(t)}</span>`).join('')}${card.stage ? `<span class="chip">${esc(card.stage.replace(/Stage(\d)/, 'Stage $1'))}${card.evolveFrom ? ' · from ' + esc(card.evolveFrom) : ''}</span>` : ''}</div>`);
+    if (card.abilities?.length) parts.push(card.abilities.map(ab => `<div class="ability" style="padding:8px 0;border-top:1px solid var(--line)"><span class="tag">${esc(ab.type || 'Ability')}</span> <b>${esc(ab.name)}</b><div class="small muted">${esc(ab.effect)}</div></div>`).join(''));
+    if (card.attacks?.length) parts.push(card.attacks.map(attackHtml).join(''));
+    const wr = [];
+    if (card.weaknesses?.length) wr.push(`<span><span class="muted small">Weakness</span> ${card.weaknesses.map(w => pip(w.type) + ' ' + esc(w.value || '')).join(' ')}</span>`);
+    if (card.resistances?.length) wr.push(`<span><span class="muted small">Resistance</span> ${card.resistances.map(w => pip(w.type) + ' ' + esc(w.value || '')).join(' ')}</span>`);
+    if (card.retreat != null) wr.push(`<span><span class="muted small">Retreat</span> ${Array.from({ length: Number(card.retreat) || 0 }, () => pip('Colorless')).join('') || '0'}</span>`);
+    if (wr.length) parts.push(`<div class="row wrap" style="gap:8px 16px;padding-top:8px;border-top:1px solid var(--line)">${wr.join('')}</div>`);
+    if (card.description) parts.push(`<p class="small muted" style="font-style:italic;margin:10px 0 0">${esc(card.description)}</p>`);
+  } else {
+    parts.push(`<div style="margin:8px 0"><span class="chip">${esc(card.category === 'Trainer' ? (card.trainerType || 'Trainer') : (card.energyType ? card.energyType + ' Energy' : 'Energy'))}</span></div>`);
+    if (card.effect) parts.push(`<p style="margin:6px 0">${esc(card.effect)}</p>`);
+  }
+  return parts.join('');
+}
+function ownedRowsHtml(card) {
+  const avail = card.variants || {};
+  const known = VARIANTS.filter(v => v.key === 'other' || avail[v.key] || S.owned.has(ownedKey(card.id, v.key)) || (!card.variants && v.key !== 'firstEdition'));
+  return known.map(v => {
+    const o = S.owned.get(ownedKey(card.id, v.key)); const q = o?.qty || 0; const pl = priceLabel(card, v.key);
+    return `<div class="own-row"><span class="vn">${esc(v.label)}${pl && S.settings.showPrices && v.key !== 'other' ? ` <span class="small muted mono">${esc(pl)}</span>` : ''}</span>
+      ${q ? `<select class="input" data-act="own-cond" data-id="${esc(card.id)}" data-variant="${v.key}" aria-label="Condition">${CONDITIONS.map(c => `<option value="${c}" ${(o.condition || '') === c ? 'selected' : ''}>${c || 'Cond.'}</option>`).join('')}</select>` : ''}
+      <div class="stepper sm"><button data-act="own-bump" data-id="${esc(card.id)}" data-variant="${v.key}" data-d="-1" aria-label="Remove one">−</button><span>${q}</span><button data-act="own-bump" data-id="${esc(card.id)}" data-variant="${v.key}" data-d="1" aria-label="Add one">+</button></div></div>`;
+  }).join('');
+}
+function openCardDetail(cardId, { refreshFirst = false } = {}) {
+  const card = S.cards.get(cardId); if (!card) { toast('Card data missing'); return; }
+  const src = imgSrc(card);
+  const hi = S.online ? imgUrl(card, 'high') : null;
+  const total = card.setOfficial || S.setsById.get(card.setId)?.cardCount?.official;
+  const body = `
+    <div class="detail">
+      <div>
+        <div class="art">${src ? `<img src="${esc(hi || src)}" onerror="this.onerror=null;this.src='${esc(src)}'" alt="${esc(card.name)}">` : `<div class="ph" style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink3)">No image cached</div>`}</div>
+        <div class="row" style="margin-top:10px;gap:8px">
+          <button class="btn sm grow" data-act="add-to-deck" data-id="${esc(card.id)}">Add to deck…</button>
+          <button class="btn sm ghost" data-act="refresh-card" data-id="${esc(card.id)}" ${S.online ? '' : 'disabled'} title="Refresh data and prices">↻</button>
+        </div>
+      </div>
+      <div>
+        <div class="title">${esc(card.name)}${card.suffix ? ` <span class="muted" style="font-size:16px">${esc(card.suffix)}</span>` : ''}</div>
+        <div class="subtitle">${esc(card.setName || card.setId)} · <span class="mono">${esc(setCode(card.setId))} ${esc(card.localId)}${total ? '/' + esc(total) : ''}</span>${card.rarity ? ' · ' + esc(card.rarity) : ''}${card.illustrator ? ' · illus. ' + esc(card.illustrator) : ''}</div>
+        <div class="row wrap" style="gap:6px;margin-top:8px">${markChip(card)} ${legalityChips(card)}</div>
+        ${cardFacts(card)}
+        <div class="divider"></div>
+        <h3>In your binder</h3>
+        <div class="own-rows">${ownedRowsHtml(card)}</div>
+        ${S.settings.showPrices ? `<div class="divider"></div><h3>Market</h3><div style="margin-top:6px">${priceTable(card)}</div>` : ''}
+        <div class="divider"></div>
+        <div class="row" style="justify-content:space-between"><span class="small muted">Card data fetched ${esc(fmtAge(card.fetchedAt))}</span>${ownedQty(card.id) ? `<button class="btn sm danger" data-act="remove-card" data-id="${esc(card.id)}">Remove all copies</button>` : ''}</div>
+      </div>
+    </div>`;
+  openSheet(card.setName || card.setId || 'Card', body, { onClose: () => { if (S.view === 'collection') renderBinderGrid(); if (S.view === 'add') renderRecent(); if (S.view === 'decks') renderDecks(); } });
+  const root = $('#sheet-root'); if (root) root.dataset.card = cardId;
+  if (refreshFirst && S.online) refreshCard(cardId).then(() => { if (sheetShowing(cardId)) rerenderDetail(cardId); }).catch(() => { });
+  if (S.online && needsReprintCheck(card)) checkReprint(card).then(() => { if (sheetShowing(cardId)) rerenderDetail(cardId); }).catch(() => { });
+}
+function rerenderDetail(cardId) {
+  const body = sheetBody(); if (!body) return;
+  const scroll = body.scrollTop; openCardDetail(cardId); const b2 = sheetBody(); if (b2) b2.scrollTop = scroll;
+}
+
+/* =====================================================================
+   Add view
+   ===================================================================== */
+function renderAdd() {
+  const el = $('#view-add'); const u = S.ui.add;
+  el.innerHTML = `
+    <h1>Add cards</h1>
+    <p class="muted" style="margin:4px 0 12px">Set and number is the fast path. Scan reads the number off the card for you.</p>
+    <div class="seg" style="margin-bottom:14px">
+      <button data-act="add-mode" data-mode="set" class="${u.mode === 'set' ? 'active' : ''}">Set + number</button>
+      <button data-act="add-mode" data-mode="search" class="${u.mode === 'search' ? 'active' : ''}">By name</button>
+      <button data-act="open-scanner">Scan</button>
+    </div>
+    <div id="add-panel"></div>
+    <div id="add-recent" style="margin-top:22px"></div>`;
+  renderAddPanel(); renderRecent();
+  if (!S.sets.length && S.online) ensureSets().then(() => renderAddPanel()).catch(e => { $('#add-panel')?.insertAdjacentHTML('afterbegin', `<div class="msg bad">${esc(e.message)}</div>`); });
+}
+function renderAddPanel() {
+  const p = $('#add-panel'); if (!p) return; const u = S.ui.add;
+  if (u.mode === 'search') { renderNameSearch(p); return; }
+  const set = S.setsById.get(u.setId);
+  p.innerHTML = `
+    <div class="card-panel stack">
+      <div class="row wrap" style="align-items:flex-end">
+        <div class="field grow set-picker" style="min-width:220px">
+          <label for="set-input">Set</label>
+          <input class="input" id="set-input" placeholder="${S.sets.length ? 'Type a set name or code' : (S.online ? 'Loading sets…' : 'Set list not cached yet')}" value="${esc(set ? set.name : '')}" autocomplete="off" ${S.sets.length ? '' : 'disabled'}>
+          <div class="set-list hidden" id="set-list"></div>
+        </div>
+        <div class="field" style="width:120px">
+          <label for="num-input">Number</label>
+          <input class="input mono" id="num-input" placeholder="e.g. 45" value="${esc(u.number)}" autocomplete="off" inputmode="text" enterkeyhint="search">
+        </div>
+        <button class="btn primary" data-act="lookup" ${u.busy ? 'disabled' : ''} style="min-height:42px">${u.busy ? 'Looking…' : 'Look up'}</button>
+      </div>
+      ${set?.cardCount?.official ? `<div class="small muted">${esc(set.name)} has ${set.cardCount.official} numbered cards${set.cardCount.total > set.cardCount.official ? ' (' + set.cardCount.total + ' with secret rares)' : ''}. Numbers like TG05 or SV049 work too.</div>` : ''}
+      ${u.error ? `<div class="msg bad">${esc(u.error)}</div>` : ''}
+      <div id="add-preview">${addPreviewHtml()}</div>
+    </div>`;
+  wireSetPicker();
+  const num = $('#num-input');
+  num.addEventListener('input', e => { u.number = e.target.value.trim(); });
+  num.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); lookupCard(); } });
+  if (u.card && !u.busy) { /* keep focus flow */ } else if (u.setId && !u.number) num.focus();
+}
+function addChipsHtml(c) {
+  const owned = ownedQty(c.id);
+  return `${markChip(c)} ${legalityChips(c)} ${c.hp ? `<span class="chip">${esc(c.hp)} HP</span>` : ''} ${(c.types || []).map(t => `<span class="chip">${pip(t)}${esc(t)}</span>`).join('')}${owned ? `<span class="chip accent">you own ${owned}</span>` : ''}`;
+}
+function addPreviewHtml() {
+  const u = S.ui.add; const c = u.card;
+  if (!c) return u.setId ? `<div class="small muted">Enter a number and press Look up (or Enter).</div>` : `<div class="small muted">Pick a set to start.</div>`;
+  const src = imgSrc(c);
+  const avail = c.variants || {};
+  const opts = VARIANTS.filter(v => v.key === 'other' || avail[v.key] || (!c.variants && v.key !== 'firstEdition'));
+  if (!opts.some(v => v.key === u.variant)) u.variant = opts[0].key;
+  const total = c.setOfficial || S.setsById.get(c.setId)?.cardCount?.official;
+  return `
+    <div class="preview">
+      <div class="art">${src ? `<img src="${esc(src)}" alt="">` : `<div class="ph" style="display:flex;align-items:center;justify-content:center;height:100%;padding:8px;text-align:center;font-size:12px;color:var(--ink3)">${esc(c.name)}</div>`}</div>
+      <div class="grow">
+        <div class="t">${esc(c.name)}</div>
+        <div class="small muted">${esc(c.setName || c.setId)} · <span class="mono">${esc(c.localId)}${total ? '/' + esc(total) : ''}</span>${c.rarity ? ' · ' + esc(c.rarity) : ''}</div>
+        <div class="row wrap" id="add-chips" style="gap:6px;margin:6px 0">${addChipsHtml(c)}</div>
+        <button class="link small" data-act="open-card" data-id="${esc(c.id)}">Full card details</button>
+      </div>
+    </div>
+    <div class="field" style="margin-top:12px"><label>Finish</label>
+      <div class="seg" id="variant-seg">${opts.map(v => { const pl = S.settings.showPrices ? priceLabel(c, v.key) : ''; return `<button data-act="pick-variant" data-variant="${v.key}" class="${u.variant === v.key ? 'active' : ''}">${esc(v.label)}${pl && v.key !== 'other' ? ` <span class="mono muted small">${esc(pl)}</span>` : ''}</button>`; }).join('')}</div>
+    </div>
+    <div class="commit-row">
+      <div class="field"><label>Quantity</label><div class="stepper"><button data-act="add-qty" data-d="-1" aria-label="Fewer">−</button><span id="add-qty">${u.qty}</span><button data-act="add-qty" data-d="1" aria-label="More">+</button></div></div>
+      <div class="field" style="width:120px"><label for="cond-select">Condition</label><select class="input" id="cond-select">${CONDITIONS.map(x => `<option value="${x}" ${u.cond === x ? 'selected' : ''}>${x || 'Any'}</option>`).join('')}</select></div>
+      <button class="btn primary" data-act="commit-add">Add ${u.qty} to binder</button>
+    </div>`;
+}
+function wireSetPicker() {
+  const input = $('#set-input'), list = $('#set-list'); if (!input || !list) return;
+  let hl = 0, items = [];
+  const show = () => {
+    const q = norm(input.value);
+    const selected = S.setsById.get(S.ui.add.setId);
+    const all = [...S.sets].reverse();
+    items = (q && !(selected && norm(selected.name) === q) ? all.filter(s => norm(s.name).includes(q) || norm(s.id).includes(q) || norm(s.detail?.tcgOnline || '').includes(q)) : all).slice(0, 80);
+    hl = 0;
+    list.innerHTML = items.length ? items.map((s, i) => `<button type="button" data-set="${esc(s.id)}" class="${i === hl ? 'hl' : ''}">${s.symbol ? `<img src="${esc(s.symbol)}.webp" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : '<span style="width:26px"></span>'}<span class="sn">${esc(s.name)}</span><span class="sc">${esc(s.detail?.tcgOnline || s.id)} · ${esc(s.cardCount?.official ?? '?')}</span></button>`).join('') : `<div class="small muted" style="padding:10px 12px">No set matches</div>`;
+    list.classList.remove('hidden');
+  };
+  const pick = id => { S.ui.add.setId = id; S.ui.add.card = null; S.ui.add.error = ''; list.classList.add('hidden'); renderAddPanel(); $('#num-input')?.focus(); getSetDetail(id).catch(() => { }); };
+  input.addEventListener('focus', () => { input.select(); show(); });
+  input.addEventListener('input', show);
+  input.addEventListener('keydown', e => {
+    if (list.classList.contains('hidden')) return;
+    if (e.key === 'ArrowDown') { hl = Math.min(hl + 1, items.length - 1); e.preventDefault(); }
+    else if (e.key === 'ArrowUp') { hl = Math.max(hl - 1, 0); e.preventDefault(); }
+    else if (e.key === 'Enter') { if (items[hl]) pick(items[hl].id); e.preventDefault(); return; }
+    else if (e.key === 'Escape') { list.classList.add('hidden'); return; }
+    else return;
+    $$('button', list).forEach((b, i) => b.classList.toggle('hl', i === hl));
+    $$('button', list)[hl]?.scrollIntoView({ block: 'nearest' });
+  });
+  list.addEventListener('mousedown', e => { const b = e.target.closest('button[data-set]'); if (b) { e.preventDefault(); pick(b.dataset.set); } });
+  input.addEventListener('blur', () => setTimeout(() => list.classList.add('hidden'), 150));
+}
+async function lookupCard() {
+  const u = S.ui.add;
+  if (!u.setId) { u.error = 'Pick a set first.'; renderAddPanel(); return; }
+  if (!u.number) { u.error = 'Type the card number (the number before the slash).'; renderAddPanel(); return; }
+  u.busy = true; u.error = ''; renderAddPanel();
+  try {
+    let localId = u.number.replace(/\s+/g, '').replace(/\/.*$/, '');
+    let card;
+    try { card = await getCard(u.setId, localId); }
+    catch (e) {
+      // try zero padded / unpadded variants (e.g. "5" vs "005", "sv049" vs "SV049")
+      const alts = new Set([localId.replace(/^0+(?=\d)/, ''), localId.padStart(3, '0'), localId.toUpperCase(), localId.toLowerCase()]);
+      alts.delete(localId);
+      for (const a of alts) { try { card = await getCard(u.setId, a); break; } catch { } }
+      if (!card) throw e;
+    }
+    u.card = card; u.qty = u.qty || 1;
+    if (!card.variants?.[u.variant]) u.variant = card.variants?.normal ? 'normal' : (card.variants?.holo ? 'holo' : 'normal');
+    if (S.online && needsReprintCheck(card)) checkReprint(card).then(() => { if (S.view === 'add' && u.card?.id === card.id) { const chips = $('#add-chips'); if (chips) chips.innerHTML = addChipsHtml(card); } }).catch(() => { });
+  } catch (e) {
+    u.card = null;
+    u.error = e.code === 404 ? `No card ${u.number} in ${S.setsById.get(u.setId)?.name || u.setId}. Check the number before the slash, or that the set is right.` : e.message;
+  }
+  u.busy = false; renderAddPanel();
+}
+async function commitAdd() {
+  const u = S.ui.add; if (!u.card) return;
+  const cond = $('#cond-select')?.value || '';
+  await bumpOwned(u.card.id, u.variant, u.qty);
+  const rec = S.owned.get(ownedKey(u.card.id, u.variant)); if (rec && cond) { rec.condition = cond; await dbPut('owned', rec); }
+  toast(`Added ${u.qty} × ${u.card.name} (${variantLabel(u.variant)})`);
+  u.number = ''; u.card = null; u.qty = 1; u.error = '';
+  renderAddPanel(); renderRecent();
+  $('#num-input')?.focus();
+}
+function renderRecent() {
+  const el = $('#add-recent'); if (!el) return;
+  const rows = [...S.owned.values()].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 8);
+  if (!rows.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<h3>Recently added</h3><div class="list recent">${rows.map(o => { const c = S.cards.get(o.cardId); if (!c) return ''; const src = imgSrc(c); return `<div class="list-item">${src ? `<img class="thumb" src="${esc(src)}" alt="">` : '<div class="thumb"></div>'}<div class="grow"><button class="link" data-act="open-card" data-id="${esc(c.id)}"><span class="name">${esc(c.name)}</span></button><div class="sub">${esc(c.setName)} · <span class="mono">${esc(c.localId)}</span> · ${esc(variantLabel(o.variant))}${o.condition ? ' · ' + esc(o.condition) : ''}</div></div><div class="stepper sm"><button data-act="own-bump" data-id="${esc(c.id)}" data-variant="${o.variant}" data-d="-1" aria-label="Remove one">−</button><span>${o.qty}</span><button data-act="own-bump" data-id="${esc(c.id)}" data-variant="${o.variant}" data-d="1" aria-label="Add one">+</button></div></div>`; }).join('')}</div>`;
+}
+function renderNameSearch(p) {
+  const u = S.ui.add;
+  p.innerHTML = `
+    <div class="card-panel stack">
+      <div class="row"><input class="input grow" id="name-q" type="search" placeholder="Card name, e.g. Charizard ex" value="${esc(u.q)}" autocomplete="off" enterkeyhint="search"><button class="btn primary" data-act="name-search" ${u.busy ? 'disabled' : ''}>${u.busy ? '…' : 'Search'}</button></div>
+      <div class="small muted">${S.online ? 'Searches the whole card database, newest sets first. Tap a card to load it.' : 'Offline: searching cards already cached on this device.'}</div>
+      ${u.error ? `<div class="msg bad">${esc(u.error)}</div>` : ''}
+      <div id="name-results">${u.results.length ? `<div class="results">${u.results.map(r => { const c = S.cards.get(r.id) || { ...r, setName: S.setsById.get(r.setId)?.name || '', pricing: null }; return cardTile(c, { act: 'pick-result', showPrice: false }); }).join('')}</div>` : ''}</div>
+    </div>`;
+  const q = $('#name-q'); q.addEventListener('input', e => { u.q = e.target.value; }); q.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); nameSearch(); } });
+  q.focus();
+}
+async function nameSearch() {
+  const u = S.ui.add; const q = u.q.trim(); if (q.length < 2) { u.error = 'Type at least two letters.'; renderAddPanel(); return; }
+  u.busy = true; u.error = ''; renderAddPanel();
+  try {
+    u.results = S.online ? await searchCardsByName(q) : localSearch(q);
+    if (!u.results.length) u.error = S.online ? 'No cards with that name. Try a shorter part of the name.' : 'Nothing cached with that name. Connect to search everything.';
+  } catch (e) { u.error = e.message; u.results = localSearch(q); }
+  u.busy = false; renderAddPanel();
+}
+async function pickResult(id) {
+  const u = S.ui.add;
+  try {
+    const card = await getCardById(id);
+    u.mode = 'set'; u.setId = card.setId; u.number = card.localId; u.card = card; u.error = '';
+    if (!S.setsById.has(card.setId)) await ensureSets().catch(() => { });
+    renderAddPanel(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (e) { toast(e.message); }
+}
+/* =====================================================================
+   Legality
+   ===================================================================== */
+function standardLegality(card) {
+  const min = (S.settings.minMark || 'H').toUpperCase();
+  const m = (card.regulationMark || '').toUpperCase();
+  if (isBasicEnergy(card)) return { state: 'legal' };            // basic Energy from any set is always legal
+  if (m && m >= min) return { state: 'legal' };
+  const rc = reprintVerdict(card);
+  if (rc?.legal) return { state: 'legal', via: rc.viaId, reason: `Older print. Legal because ${rc.viaCode || 'a current print'} carries regulation mark ${rc.viaMark}.` };
+  if (m) {
+    if (rc && rc.legal === false) return { state: 'illegal', reason: `Rotated out (mark ${m}). No current print with the same text was found.` };
+    return { state: 'unknown', reason: `Rotated print (mark ${m}). It stays legal only if the same card exists with mark ${min} or later; checked automatically when online.` };
+  }
+  if (card.legal?.standard === true) return { state: 'legal' };
+  if (rc && rc.legal === false) return { state: 'illegal', reason: 'No regulation mark and no current print with the same text was found.' };
+  return { state: 'unknown', reason: 'No regulation mark. Legal only if the same card was reprinted with a current mark; checked automatically when online.' };
+}
+function setReleaseDate(setId) { return S.setsById.get(setId)?.detail?.releaseDate || null; }
+function expandedLegal(card) {
+  if (card.legal?.expanded === true) return true;
+  if (card.legal?.expanded === false) return false;
+  const rd = setReleaseDate(card.setId);
+  if (rd) return rd >= BW_RELEASE;
+  const m = (card.regulationMark || '').toUpperCase();
+  return !!m; // marks only exist from 2020 onward, all Expanded legal
+}
+function isBasicEnergy(card) { return card.category === 'Energy' && (card.energyType || '').toLowerCase() === 'basic'; }
+function isAceSpec(card) { return /ace spec/i.test(card.rarity || '') || /ACE SPEC/.test(card.effect || '') || /ACE SPEC/.test(card.name || ''); }
+function isRadiant(card) { return /^Radiant /.test(card.name || ''); }
+function isPrismStar(card) { return /◇|prism star/i.test(card.name || '') || (card.suffix || '').toLowerCase().includes('prism'); }
+
+/* ---------- reprints ----------
+   An older print stays Standard legal when a card with the same name and identical text
+   carries a current regulation mark (Rare Candy, Professor's Research, Switch...). The
+   check needs the network once per card name; the verdict is stored on the card record. */
+const REPRINT_MAX_AGE = 30 * 24 * 3600 * 1000;   // re-check "no reprint" verdicts monthly
+function textKey(card) {
+  const n = s => norm(s).replace(/ /g, '');
+  if (card.category === 'Pokemon') return ['p', n(card.name), card.hp || '', (card.abilities || []).map(a => n(a.name) + n(a.effect)).join(';'), (card.attacks || []).map(a => (a.cost || []).join('') + n(a.name) + n(a.damage) + n(a.effect)).join(';')].join('|');
+  return ['t', n(card.name), n(card.effect)].join('|');
+}
+function reprintVerdict(card) {
+  const rc = card.reprint; const min = (S.settings.minMark || 'H').toUpperCase();
+  return rc && rc.minMark === min ? rc : null;
+}
+function needsReprintCheck(card) {
+  if (!card || isBasicEnergy(card)) return false;
+  const min = (S.settings.minMark || 'H').toUpperCase(); const m = (card.regulationMark || '').toUpperCase();
+  if (m && m >= min) return false;
+  const rc = reprintVerdict(card);
+  return !rc || (!rc.legal && now() - rc.checkedAt > REPRINT_MAX_AGE);
+}
+const reprintInflight = new Map();
+let reprintActive = 0; const reprintWaiters = [];
+async function reprintSlot() { if (reprintActive < 2) { reprintActive++; return; } await new Promise(res => reprintWaiters.push(res)); reprintActive++; }
+function reprintRelease() { reprintActive--; const w = reprintWaiters.shift(); if (w) w(); }
+async function checkReprint(card) {
+  if (!S.online || !needsReprintCheck(card)) return reprintVerdict(card);
+  const min = (S.settings.minMark || 'H').toUpperCase();
+  const key = norm(card.name) + '|' + textKey(card);
+  if (reprintInflight.has(key)) return reprintInflight.get(key);
+  const job = (async () => {
+    await reprintSlot();
+    try {
+      const list = await apiGet(`/cards?name=${encodeURIComponent(card.name)}&pagination:page=1&pagination:itemsPerPage=250`);
+      const same = (Array.isArray(list) ? list : []).filter(b => norm(b.name) === norm(card.name) && b.id !== card.id)
+        .map(b => ({ ...b, setId: String(b.id).split('-')[0] }))
+        .sort((a, b) => setOrderIndex(b.setId) - setOrderIndex(a.setId));   // newest print first
+      const want = textKey(card);
+      let verdict = { minMark: min, legal: false, checkedAt: now() }, looked = 0;
+      for (const b of same) {
+        if (looked >= 8) break;
+        let c = S.cards.get(b.id);
+        if (!c) { try { c = await getCardById(b.id); } catch { continue; } }
+        looked++;
+        const cm = (c.regulationMark || '').toUpperCase();
+        if (!cm || cm < min) break;                       // prints only get newer marks; nothing older will be legal
+        if (textKey(c) === want) { verdict = { minMark: min, legal: true, viaId: c.id, viaMark: cm, viaCode: `${setCode(c.setId)} ${c.localId}`, checkedAt: now() }; break; }
+      }
+      // every cached print of this exact card text shares the verdict
+      for (const c of S.cards.values()) if (c.id !== card.id && norm(c.name) === norm(card.name) && textKey(c) === want && needsReprintCheck(c)) { c.reprint = verdict; await dbPut('cards', c); }
+      card.reprint = verdict; await dbPut('cards', card);
+      return verdict;
+    } finally { reprintRelease(); reprintInflight.delete(key); }
+  })();
+  reprintInflight.set(key, job);
+  return job;
+}
+/* Run checks for every uncertain card in a deck; calls onDone once when at least one verdict changed. */
+function checkDeckReprints(deck, onDone) {
+  if (!S.online) return;
+  const todo = deck.cards.map(c => S.cards.get(c.cardId)).filter(c => c && needsReprintCheck(c));
+  if (!todo.length) return;
+  Promise.allSettled(todo.map(c => checkReprint(c))).then(() => onDone && onDone());
+}
+
+/* =====================================================================
+   Deck analysis
+   ===================================================================== */
+function analyzeDeck(deck) {
+  const rows = deck.cards.map(({ cardId, qty }) => ({ cardId, qty, card: S.cards.get(cardId) || null })).filter(r => r.card);
+  const missingData = deck.cards.length - rows.length;
+  const total = deck.cards.reduce((n, c) => n + c.qty, 0);
+  const byCat = { Pokemon: 0, Trainer: 0, Energy: 0 };
+  rows.forEach(r => { byCat[r.card.category] = (byCat[r.card.category] || 0) + r.qty; });
+  const problems = [];
+  if (total !== 60) problems.push({ level: 'bad', text: total < 60 ? `${total} of 60 cards. ${60 - total} more to go.` : `${total} cards, ${total - 60} over the limit of 60.` });
+  // copies per name (basic energy exempt)
+  const byName = new Map();
+  rows.forEach(r => { if (isBasicEnergy(r.card)) return; const k = norm(r.card.name); byName.set(k, (byName.get(k) || 0) + r.qty); });
+  for (const [k, n] of byName) if (n > 4) problems.push({ level: 'bad', text: `${n} copies of ${rows.find(r => norm(r.card.name) === k).card.name}. Max is 4 with the same name.` });
+  const ace = rows.filter(r => isAceSpec(r.card)).reduce((n, r) => n + r.qty, 0);
+  if (ace > 1) problems.push({ level: 'bad', text: `${ace} ACE SPEC cards. Only one ACE SPEC per deck.` });
+  const rad = rows.filter(r => isRadiant(r.card)).reduce((n, r) => n + r.qty, 0);
+  if (rad > 1) problems.push({ level: 'bad', text: `${rad} Radiant Pokémon. Only one Radiant per deck.` });
+  const prism = new Map(); rows.forEach(r => { if (isPrismStar(r.card)) prism.set(norm(r.card.name), (prism.get(norm(r.card.name)) || 0) + r.qty); });
+  for (const [k, n] of prism) if (n > 1) problems.push({ level: 'bad', text: `Two or more Prism Star ${k}. Only one of each Prism Star.` });
+  if (rows.length && !rows.some(r => r.card.category === 'Pokemon' && (r.card.stage || 'Basic') === 'Basic')) problems.push({ level: 'warn', text: 'No Basic Pokémon. You need at least one to start a game.' });
+  // legality
+  rows.forEach(r => {
+    r.legal = { state: 'legal' };
+    if (deck.format === 'standard') r.legal = standardLegality(r.card);
+    else if (deck.format === 'expanded') r.legal = expandedLegal(r.card) ? { state: 'legal' } : { state: 'illegal', reason: 'Not Expanded legal (pre Black & White)' };
+  });
+  const illegal = rows.filter(r => r.legal.state === 'illegal');
+  if (illegal.length) problems.push({ level: 'bad', text: `${illegal.length} card${illegal.length > 1 ? 's' : ''} not legal in ${FORMATS[deck.format]}: ${illegal.slice(0, 4).map(r => r.card.name).join(', ')}${illegal.length > 4 ? '…' : ''}.` });
+  const unknown = rows.filter(r => r.legal.state === 'unknown');
+  if (unknown.length && deck.format === 'standard') problems.push({ level: 'warn', text: `${unknown.length} older print${unknown.length > 1 ? 's need' : ' needs'} a reprint check (${unknown.slice(0, 3).map(r => r.card.name).join(', ')}${unknown.length > 3 ? '…' : ''}). Old prints are legal only if the same card exists with a current mark; this resolves itself when you are online.` });
+  if (missingData) problems.push({ level: 'warn', text: `${missingData} card${missingData > 1 ? 's' : ''} in this deck have no cached data yet. Open them online to load details.` });
+  // ownership
+  const byNameOwned = ownedByName();
+  const remaining = new Map(byNameOwned);
+  let value = 0, missingCost = 0, missingCount = 0, unit = null, unpriced = 0;
+  const exactUsed = new Map();
+  rows.forEach(r => {
+    let owned;
+    if (S.settings.deckMatch === 'exact') { const have = ownedQty(r.cardId) - (exactUsed.get(r.cardId) || 0); owned = clamp(have, 0, r.qty); exactUsed.set(r.cardId, (exactUsed.get(r.cardId) || 0) + owned); }
+    else { const k = norm(r.card.name); const have = remaining.get(k) || 0; owned = clamp(have, 0, r.qty); remaining.set(k, have - owned); }
+    r.owned = owned; r.short = r.qty - owned;
+    const p = priceFor(r.card, 'normal');
+    if (p) { value += p.value * r.qty; missingCost += p.value * r.short; unit ||= p.unit; } else if (r.short) unpriced++;
+    missingCount += r.short;
+  });
+  const valid = !problems.some(p => p.level === 'bad');
+  return { rows, total, byCat, problems, valid, value, missingCost, missingCount, unit: unit || (S.settings.priceSource === 'cardmarket' ? 'EUR' : 'USD'), unpriced };
+}
+
+/* =====================================================================
+   PTCGL text export / import
+   ===================================================================== */
+async function deckToText(deck) {
+  const a = analyzeDeck(deck);
+  // make sure set codes are known when online
+  if (S.online) for (const r of a.rows) { const s = S.setsById.get(r.card.setId); if (s && !s.detail) { try { await getSetDetail(s.id); } catch { } } }
+  const line = r => `${r.qty} ${r.card.name} ${setCode(r.card.setId)} ${r.card.localId}`;
+  const grp = cat => a.rows.filter(r => r.card.category === cat);
+  const parts = [];
+  parts.push(`Pokémon: ${grp('Pokemon').reduce((n, r) => n + r.qty, 0)}`, ...grp('Pokemon').map(line), '');
+  parts.push(`Trainer: ${grp('Trainer').reduce((n, r) => n + r.qty, 0)}`, ...grp('Trainer').map(line), '');
+  parts.push(`Energy: ${grp('Energy').reduce((n, r) => n + r.qty, 0)}`, ...grp('Energy').map(line), '');
+  parts.push(`Total Cards: ${a.total}`);
+  return parts.join('\n');
+}
+function parseDeckText(text) {
+  const out = [], bad = [];
+  for (const raw of String(text || '').split(/\r?\n/)) {
+    const l = raw.trim(); if (!l) continue;
+    if (/^(pok[eé]mon|trainer|energy|total cards)\s*:/i.test(l) || /^#|^\/\//.test(l)) continue;
+    // "4 Charmander MEW 4"   "12 Basic {R} Energy SVE 2"   "1 Iono PAL 185"  "2 Radiant Greninja ASR 46"
+    let m = l.match(/^(\d+)\s*[x×]?\s+(.+?)\s+([A-Za-z][A-Za-z0-9-]{1,6})\s+([A-Za-z]{0,4}\d+[A-Za-z]{0,3})\s*$/);
+    if (m) { out.push({ qty: Number(m[1]), name: m[2].trim(), code: m[3].toUpperCase(), localId: m[4].replace(/^0+(?=\d)/, '') }); continue; }
+    m = l.match(/^(\d+)\s*[x×]?\s+(.+)$/);
+    if (m) { out.push({ qty: Number(m[1]), name: m[2].trim(), code: null, localId: null }); continue; }
+    bad.push(l);
+  }
+  return { lines: out, bad };
+}
+async function importDeckText(deck, text, onProgress) {
+  const { lines, bad } = parseDeckText(text);
+  const unresolved = [...bad];
+  let done = 0;
+  for (const ln of lines) {
+    onProgress?.(++done, lines.length, ln);
+    try {
+      let card = null;
+      if (ln.code && ln.localId) {
+        let set = findSetByCode(ln.code) || await resolveSetCode(ln.code);
+        if (set) { try { card = await getCard(set.id, ln.localId); } catch { try { card = await getCard(set.id, ln.localId.padStart(3, '0')); } catch { } } }
+      }
+      if (!card) {
+        // fall back to name search: exact name, newest print, prefer Standard legal
+        const found = S.online ? await searchCardsByName(ln.name) : localSearch(ln.name);
+        const exact = found.filter(f => norm(f.name) === norm(ln.name));
+        if (exact.length) {
+          for (const f of exact.slice(0, 6)) { try { const c = await getCardById(f.id); if (deck.format !== 'standard' || standardLegality(c).state === 'legal') { card = c; break; } if (!card) card = c; } catch { } }
+        }
+      }
+      if (!card) { unresolved.push(`${ln.qty} ${ln.name}${ln.code ? ' ' + ln.code + ' ' + ln.localId : ''}`); continue; }
+      const cur = deck.cards.find(c => c.cardId === card.id);
+      if (cur) cur.qty += ln.qty; else deck.cards.push({ cardId: card.id, qty: ln.qty });
+      cacheImage(card);
+    } catch (e) { unresolved.push(`${ln.qty} ${ln.name} (${e.message})`); }
+  }
+  await saveDeck(deck);
+  return { added: lines.length - (unresolved.length - bad.length), unresolved };
+}
+
+/* =====================================================================
+   Decks view
+   ===================================================================== */
+function renderDecks() {
+  const el = $('#view-decks'); const u = S.ui.deck;
+  if (u.id && S.decks.has(u.id)) { renderDeckEditor(el, S.decks.get(u.id)); return; }
+  u.id = null;
+  const decks = [...S.decks.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+  el.innerHTML = `
+    <div class="row" style="align-items:flex-end;flex-wrap:wrap;gap:8px 16px"><h1>Decks</h1><div class="spacer grow"></div><button class="btn primary" data-act="new-deck">New deck</button></div>
+    <p class="muted" style="margin:4px 0 14px">Build from your binder, check the rules, see what you still need to buy.</p>
+    ${decks.length ? `<div class="stack">${decks.map(d => {
+      const a = analyzeDeck(d);
+      const thumbs = a.rows.filter(r => r.card.category === 'Pokemon').slice(0, 4).map(r => imgSrc(r.card)).filter(Boolean);
+      return `<button class="deck-card" data-act="open-deck" data-id="${esc(d.id)}">
+        <div class="thumbs">${thumbs.map(s => `<img src="${esc(s)}" alt="">`).join('') || '<img alt="" style="opacity:.3">'}</div>
+        <div class="grow"><div class="dn">${esc(d.name)}</div><div class="ds">${esc(FORMATS[d.format] || d.format)} · ${a.total}/60 · ${a.missingCount ? `${a.missingCount} missing${S.settings.showPrices && a.missingCost ? ' (' + esc(fmtMoney(a.missingCost, a.unit)) + ')' : ''}` : 'fully owned'}</div></div>
+        <span class="chip ${a.valid ? 'ok' : (a.total ? 'bad' : '')}">${a.valid ? 'Legal' : (a.total ? a.problems.filter(p => p.level === 'bad').length + ' issue' + (a.problems.filter(p => p.level === 'bad').length > 1 ? 's' : '') : 'Empty')}</span>
+      </button>`; }).join('')}</div>` : `<div class="empty"><b>No decks yet</b>Start one and add cards from your binder, or paste a list from TCG Live or Limitless.<br><br><button class="btn primary" data-act="new-deck">New deck</button></div>`}`;
+}
+function deckStrip(a) {
+  const cells = [];
+  const order = ['Pokemon', 'Trainer', 'Energy'];
+  for (const cat of order) for (let i = 0; i < (a.byCat[cat] || 0); i++) cells.push(cat);
+  const shown = cells.slice(0, 60);
+  while (shown.length < 60) shown.push('');
+  return `<div class="strip" aria-hidden="true">${shown.map(c => `<i class="${c}"></i>`).join('')}</div>
+    <div class="legend"><span><i style="background:var(--fire)"></i>Pokémon ${a.byCat.Pokemon || 0}</span><span><i style="background:var(--accent)"></i>Trainer ${a.byCat.Trainer || 0}</span><span><i style="background:var(--yellow)"></i>Energy ${a.byCat.Energy || 0}</span><span class="mono">${a.total}/60${a.total > 60 ? ' <b style="color:var(--bad)">+' + (a.total - 60) + '</b>' : ''}</span></div>`;
+}
+function renderDeckEditor(el, deck) {
+  const u = S.ui.deck;
+  const existing = el.querySelector('.deck-layout');
+  if (existing && existing.dataset.deck === deck.id) { renderDeckMain(deck); renderPool(deck); return; }
+  el.innerHTML = `
+    <div class="row" style="margin-bottom:8px;gap:8px"><button class="btn sm ghost" data-act="close-deck">← Decks</button><div class="grow"></div>
+      <button class="btn sm ghost" data-act="deck-export" data-id="${esc(deck.id)}">Export</button>
+      <button class="btn sm ghost" data-act="deck-import" data-id="${esc(deck.id)}">Import list</button>
+      <button class="btn sm ghost" data-act="deck-menu" data-id="${esc(deck.id)}" aria-label="More">⋯</button></div>
+    <div class="deck-layout" data-deck="${esc(deck.id)}">
+      <div id="deck-main"></div>
+      <div class="pool card-panel">
+        <div class="row" style="align-items:center;gap:8px;margin-bottom:8px"><h3 style="margin:0">Card pool</h3><div class="grow"></div>
+          <div class="seg pool-tabs" style="margin:0"><button data-act="pool-mode" data-mode="binder" class="${u.pool === 'binder' ? 'active' : ''}">My binder</button><button data-act="pool-mode" data-mode="search" class="${u.pool === 'search' ? 'active' : ''}">All cards</button></div></div>
+        <div class="row" style="margin-bottom:8px"><input class="input grow" id="pool-q" type="search" placeholder="${u.pool === 'binder' ? 'Filter your binder' : 'Search every card by name'}" value="${esc(u.q)}" autocomplete="off" enterkeyhint="search">${u.pool === 'search' ? `<button class="btn primary" data-act="pool-search" id="pool-search-btn">Search</button>` : ''}</div>
+        <label class="row small muted" id="pool-legal-wrap" style="gap:6px;margin-bottom:8px;cursor:pointer"><input type="checkbox" id="pool-legal" ${u.filterLegal ? 'checked' : ''}> <span id="pool-legal-label">Only ${esc(FORMATS[deck.format])} legal cards</span></label>
+        <div id="pool-grid"></div>
+      </div>
+    </div>`;
+  renderDeckMain(deck); renderPool(deck);
+  const pq = $('#pool-q');
+  pq.addEventListener('input', debounce(e => { u.q = e.target.value; if (u.pool === 'binder') renderPool(deck); }, 120));
+  pq.addEventListener('keydown', e => { if (e.key === 'Enter' && u.pool === 'search') { e.preventDefault(); poolSearch(); } });
+  $('#pool-legal').addEventListener('change', e => { u.filterLegal = e.target.checked; renderPool(deck); });
+}
+function renderDeckMain(deck) {
+  const main = $('#deck-main'); if (!main) return;
+  const a = analyzeDeck(deck);
+  const group = cat => a.rows.filter(r => r.card.category === cat).sort((x, y) => x.card.name.localeCompare(y.card.name));
+  const rowHtml = r => {
+    const src = imgSrc(r.card);
+    return `<div class="dl-row">${src ? `<img class="thumb" src="${esc(src)}" alt="">` : '<div class="thumb"></div>'}
+      <div class="nm"><button class="link" data-act="open-card" data-id="${esc(r.cardId)}" style="text-align:left;max-width:100%"><b>${esc(r.card.name)}</b></button><span>${esc(setCode(r.card.setId))} ${esc(r.card.localId)}${r.card.regulationMark ? ' · ' + esc(r.card.regulationMark) : ''}</span>${r.legal.state !== 'legal' ? ` <span class="flag" title="${esc(r.legal.reason || '')}">${r.legal.state === 'illegal' ? 'not legal' : 'check reprint'}</span>` : ''}</div>
+      <span class="own ${r.short ? 'short' : 'ok'}" title="${r.short ? 'You are short ' + r.short : 'You own enough'}">${r.owned}/${r.qty}</span>
+      <div class="stepper sm"><button data-act="deck-bump" data-id="${esc(r.cardId)}" data-d="-1" aria-label="Remove one">−</button><span>${r.qty}</span><button data-act="deck-bump" data-id="${esc(r.cardId)}" data-d="1" aria-label="Add one">+</button></div></div>`;
+  };
+  const groupHtml = (cat, label) => { const rows = group(cat); return rows.length ? `<div class="deck-group"><h3>${label} <span class="mono muted">${rows.reduce((n, r) => n + r.qty, 0)}</span></h3>${rows.map(rowHtml).join('')}</div>` : ''; };
+  main.innerHTML = `
+        <input class="deck-title" id="deck-name" value="${esc(deck.name)}" aria-label="Deck name" maxlength="60">
+        <div class="row wrap" style="margin-top:10px;gap:8px 14px;align-items:center">
+          <div class="seg">${Object.entries(FORMATS).map(([k, v]) => `<button data-act="deck-format" data-format="${k}" class="${deck.format === k ? 'active' : ''}">${v}</button>`).join('')}</div>
+          <span class="chip ${a.valid ? 'ok' : (a.total ? 'bad' : '')}">${a.valid ? 'Legal ' + FORMATS[deck.format] : (a.total ? 'Not ready' : 'Empty')}</span>
+        </div>
+        ${deckStrip(a)}
+        <div class="row wrap" style="gap:8px 16px;margin-top:10px">
+          <span class="small"><b>${a.missingCount}</b> <span class="muted">missing</span></span>
+          ${S.settings.showPrices ? `<span class="small"><b>${esc(fmtMoney(a.missingCost, a.unit) || '—')}</b> <span class="muted">to complete${a.unpriced ? ' (+' + a.unpriced + ' unpriced)' : ''}</span></span><span class="small"><b>${esc(fmtMoney(a.value, a.unit) || '—')}</b> <span class="muted">deck value</span></span>` : ''}
+          <span class="small muted">${S.settings.deckMatch === 'name' ? 'Same name from any set counts as owned' : 'Exact print must be owned'}</span>
+        </div>
+        ${a.problems.length ? `<div class="problems">${a.problems.map(p => `<div class="msg ${p.level}">${esc(p.text)}</div>`).join('')}</div>` : (a.total ? '<div class="msg ok" style="margin-top:8px">All checks pass.</div>' : '')}
+        ${a.rows.length ? groupHtml('Pokemon', 'Pokémon') + groupHtml('Trainer', 'Trainer') + groupHtml('Energy', 'Energy') : `<div class="empty" style="margin-top:14px"><b>Empty deck</b>Tap cards in the pool to add them, or import a list.</div>`}`;
+  $('#deck-name').addEventListener('change', async e => { deck.name = e.target.value.trim() || 'Untitled deck'; await saveDeck(deck); });
+  if (deck.format === 'standard') checkDeckReprints(deck, () => { if (S.view === 'decks' && S.ui.deck.id === deck.id && $('#deck-main')) { renderDeckMain(deck); renderPool(deck); } });
+  const lbl = $('#pool-legal-label'); if (lbl) lbl.textContent = `Only ${FORMATS[deck.format]} legal cards`;
+  const lw = $('#pool-legal-wrap'); if (lw) lw.classList.toggle('hidden', deck.format === 'unlimited');
+}
+function renderDecksFull() { const el = $('#view-decks'); if (el) el.innerHTML = ''; renderDecks(); }
+function poolCards(deck) {
+  const u = S.ui.deck; const q = norm(u.q);
+  let cards;
+  if (u.pool === 'binder') {
+    const ids = [...new Set([...S.owned.values()].map(o => o.cardId))];
+    cards = ids.map(id => S.cards.get(id)).filter(Boolean);
+    if (q) cards = cards.filter(c => norm(c.name).includes(q) || norm(c.setName).includes(q) || norm(setCode(c.setId)).includes(q));
+  } else {
+    cards = u.results.map(r => S.cards.get(r.id) || { ...r, setName: S.setsById.get(r.setId)?.name || '', pricing: null, brief: true });
+  }
+  if (u.filterLegal && deck.format !== 'unlimited') {
+    cards = cards.filter(c => c.brief ? true : (deck.format === 'standard' ? standardLegality(c).state !== 'illegal' : expandedLegal(c)));
+  }
+  cards.sort((a, b) => setOrderIndex(b.setId) - setOrderIndex(a.setId) || cmpNum(a.localId, b.localId));
+  return cards;
+}
+function renderPool(deck) {
+  const g = $('#pool-grid'); if (!g) return; const u = S.ui.deck;
+  const cards = poolCards(deck);
+  if (!cards.length) { g.innerHTML = `<div class="small muted" style="padding:14px 0">${u.pool === 'binder' ? (S.owned.size ? 'No binder cards match.' : 'Your binder is empty. Add cards first, or switch to All cards.') : (u.busy ? 'Searching…' : 'Search by name to add cards you do not own yet.')}</div>`; return; }
+  const inDeck = new Map(deck.cards.map(c => [c.cardId, c.qty]));
+  g.innerHTML = `<div class="grid">${cards.slice(0, 120).map(c => cardTile(c, { act: 'pool-add', qty: inDeck.get(c.id) || null, showPrice: !c.brief, extra: u.pool === 'binder' ? `<div class="small muted mono">own ${ownedQty(c.id)}</div>` : '' })).join('')}</div>${cards.length > 120 ? `<div class="small muted" style="padding:8px 0">Showing 120 of ${cards.length}. Narrow the search.</div>` : ''}`;
+}
+async function poolSearch() {
+  const u = S.ui.deck; const q = u.q.trim(); if (q.length < 2) { toast('Type at least two letters'); return; }
+  const deck = S.decks.get(u.id); if (!deck) return;
+  u.busy = true; const btn = $('#pool-search-btn'); if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  renderPool(deck);
+  try { u.results = S.online ? await searchCardsByName(q) : localSearch(q); if (!u.results.length) toast(S.online ? 'No cards with that name' : 'Nothing cached with that name'); }
+  catch (e) { toast(e.message); u.results = localSearch(q); }
+  u.busy = false; if (btn) { btn.disabled = false; btn.textContent = 'Search'; }
+  renderPool(deck);
+}
+async function poolAdd(cardId) {
+  const deck = S.decks.get(S.ui.deck.id); if (!deck) return;
+  let card = S.cards.get(cardId);
+  if (!card) { try { card = await getCardById(cardId); } catch (e) { toast(e.message); return; } }
+  const cur = deck.cards.find(c => c.cardId === cardId);
+  await deckSetQty(deck, cardId, (cur?.qty || 0) + 1);
+  toast(`+1 ${card.name}`, 1200);
+  renderDecks();
+}
+function openDeckMenu(deck) {
+  openSheet(deck.name, `
+    <div class="stack">
+      <div class="field"><label for="deck-notes">Notes</label><textarea class="input" id="deck-notes" style="font-family:var(--font-body);font-size:15px;min-height:90px" placeholder="Strategy notes, what to test next…">${esc(deck.notes || '')}</textarea></div>
+      <button class="btn wide" data-act="deck-duplicate" data-id="${esc(deck.id)}">Duplicate deck</button>
+      <button class="btn wide" data-act="deck-refresh-prices" data-id="${esc(deck.id)}" ${S.online ? '' : 'disabled'}>Refresh prices for this deck</button>
+      <button class="btn wide danger" data-act="deck-delete" data-id="${esc(deck.id)}">Delete deck</button>
+    </div>`);
+  $('#deck-notes').addEventListener('change', async e => { deck.notes = e.target.value; await saveDeck(deck); });
+}
+async function openDeckExport(deck) {
+  openSheet('Export ' + deck.name, `<div class="small muted" style="margin-bottom:8px">Building list…</div>`);
+  const text = await deckToText(deck);
+  const body = sheetBody(); if (!body) return;
+  body.innerHTML = `<p class="small muted" style="margin:0 0 8px">TCG Live format. Copy it, or save it as a text file.</p>
+    <textarea class="input" id="export-text" readonly>${esc(text)}</textarea>
+    <div class="row" style="margin-top:10px;gap:8px"><button class="btn primary grow" data-act="copy-export">Copy list</button><button class="btn ghost" data-act="download-export" data-name="${esc(deck.name)}">Save .txt</button></div>`;
+}
+function openDeckImport(deck) {
+  openSheet('Import into ' + deck.name, `
+    <p class="small muted" style="margin:0 0 8px">Paste a list in TCG Live or Limitless format ("4 Charmander MEW 4"). Lines with only a quantity and a name are matched by name, newest legal print first. Set codes are resolved as they are seen, which can take a moment the first time.</p>
+    <textarea class="input" id="import-text" placeholder="Pokémon: 12
+4 Charmander MEW 4
+…"></textarea>
+    <div class="row" style="margin-top:10px;gap:8px"><button class="btn primary grow" data-act="run-import" data-id="${esc(deck.id)}" ${S.online ? '' : 'disabled'}>Import</button></div>
+    <div id="import-status" style="margin-top:10px"></div>`);
+}
+async function runImport(deckId) {
+  const deck = S.decks.get(deckId); if (!deck) return;
+  const text = $('#import-text')?.value || ''; if (!text.trim()) { toast('Paste a deck list first'); return; }
+  const st = $('#import-status');
+  const btn = $('[data-act="run-import"]'); if (btn) btn.disabled = true;
+  st.innerHTML = `<div class="progress"><i id="import-bar"></i></div><div class="small muted" id="import-line" style="margin-top:6px">Starting…</div>`;
+  const res = await importDeckText(deck, text, (i, n, ln) => { const b = $('#import-bar'); if (b) b.style.width = Math.round(100 * i / n) + '%'; const l = $('#import-line'); if (l) l.textContent = `${i}/${n} · ${ln.name}`; });
+  st.innerHTML = `<div class="msg ok">Imported ${res.added} line${res.added === 1 ? '' : 's'}.</div>${res.unresolved.length ? `<div class="msg warn" style="margin-top:6px">Could not resolve:<br>${res.unresolved.map(esc).join('<br>')}</div>` : ''}<button class="btn wide" style="margin-top:10px" data-act="close-sheet">Done</button>`;
+  renderDecks();
+}
+function openDeckPicker(cardId) {
+  const card = S.cards.get(cardId); if (!card) return;
+  const decks = [...S.decks.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+  openSheet('Add ' + card.name + ' to…', `
+    <div class="list">${decks.map(d => { const q = d.cards.find(c => c.cardId === cardId)?.qty || 0; return `<div class="list-item"><div class="grow"><div class="name">${esc(d.name)}</div><div class="sub">${esc(FORMATS[d.format])} · ${deckCount(d)}/60${q ? ' · has ' + q : ''}</div></div><button class="btn sm primary" data-act="picker-add" data-deck="${esc(d.id)}" data-id="${esc(cardId)}">+1</button></div>`; }).join('') || '<div class="small muted">No decks yet.</div>'}</div>
+    <button class="btn wide" style="margin-top:12px" data-act="picker-new" data-id="${esc(cardId)}">Create a new deck with this card</button>`, { onClose: () => { if (S.view === 'decks') renderDecks(); } });
+}
+/* =====================================================================
+   Scanner: camera frame or photo -> OCR of the number band -> candidates
+   ===================================================================== */
+const TESSERACT_URL = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js';
+const SC = { stream: null, video: null, worker: null, busy: false };
+function stopScanner() {
+  if (SC.stream) { SC.stream.getTracks().forEach(t => t.stop()); SC.stream = null; }
+  SC.video = null;
+}
+function scanStatus(msg, cls = '') { const el = $('#scan-status'); if (el) { el.className = 'small ' + (cls || 'muted'); el.textContent = msg; } }
+async function loadTesseract() {
+  if (window.Tesseract) return true;
+  if (!S.online) throw new Error('The text reader needs a connection the first time it loads.');
+  await new Promise((res, rej) => { const s = document.createElement('script'); s.src = TESSERACT_URL; s.onload = res; s.onerror = () => rej(new Error('Could not load the text reader')); document.head.appendChild(s); });
+  return !!window.Tesseract;
+}
+async function getWorker() {
+  await loadTesseract();
+  if (SC.worker) return SC.worker;
+  SC.worker = await window.Tesseract.createWorker('eng', 1, { logger: m => { if (m.status && m.progress != null && m.status !== 'recognizing text') scanStatus(`${m.status} ${Math.round(m.progress * 100)}%`); } });
+  return SC.worker;
+}
+function openScanner() {
+  openSheet('Scan a card', `
+    <div class="scan-wrap" id="scan-wrap"><video id="scan-video" playsinline muted autoplay></video>
+      <div class="scan-guide"><div class="frame" id="scan-frame"><div class="band top"></div><div class="band"></div></div><div class="hint">Line the card up with the frame. Good light, no glare.</div></div></div>
+    <div class="row" style="margin-top:10px;gap:8px"><button class="btn primary grow" data-act="scan-read" id="scan-read">Read card</button><label class="btn ghost" style="cursor:pointer">Use a photo<input type="file" id="scan-file" accept="image/*" capture="environment" class="hidden"></label></div>
+    <div id="scan-status" class="small muted" style="margin-top:8px">The reader looks for the number (like 045/165) and set code printed at the bottom of the card, then shows matches for you to confirm.</div>
+    <div id="scan-cands" class="cands"></div>`);
+  startCamera();
+  $('#scan-file').addEventListener('change', e => { const f = e.target.files?.[0]; if (f) scanFromFile(f); });
+  if (!S.sets.length && S.online) ensureSets().catch(() => { });
+}
+async function startCamera() {
+  const v = $('#scan-video'); if (!v) return;
+  if (!navigator.mediaDevices?.getUserMedia) { scanStatus('This browser cannot open the camera here. Use a photo instead.'); return; }
+  try {
+    SC.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+    v.srcObject = SC.stream; SC.video = v; await v.play().catch(() => { });
+  } catch (e) { scanStatus('Camera unavailable (' + e.message + '). Use a photo instead.'); }
+}
+function cropToCanvas(source, sx, sy, sw, sh, targetW = 1100) {
+  const scale = Math.max(1, targetW / sw);
+  const c = document.createElement('canvas'); c.width = Math.round(sw * scale); c.height = Math.round(sh * scale);
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  // boost contrast a little for the OCR
+  try {
+    const im = ctx.getImageData(0, 0, c.width, c.height); const d = im.data;
+    for (let i = 0; i < d.length; i += 4) { const g = 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]; const v = clamp((g - 128) * 1.35 + 128, 0, 255); d[i] = d[i + 1] = d[i + 2] = v; }
+    ctx.putImageData(im, 0, 0);
+  } catch { }
+  return c;
+}
+async function scanFromCamera() {
+  const v = SC.video; if (!v || !v.videoWidth) { scanStatus('Camera is not ready yet.'); return; }
+  const wrap = $('#scan-wrap'), frame = $('#scan-frame');
+  const wr = wrap.getBoundingClientRect(), fr = frame.getBoundingClientRect();
+  const vw = v.videoWidth, vh = v.videoHeight;
+  const scale = Math.max(wr.width / vw, wr.height / vh);
+  const offX = (wr.width - vw * scale) / 2, offY = (wr.height - vh * scale) / 2;
+  const toVid = (x, y) => [(x - wr.left - offX) / scale, (y - wr.top - offY) / scale];
+  const [x0, y0] = toVid(fr.left, fr.top), [x1, y1] = toVid(fr.right, fr.bottom);
+  const cw = x1 - x0, ch = y1 - y0;
+  const bottom = cropToCanvas(v, x0, y1 - ch * 0.135, cw, ch * 0.135);
+  const top = cropToCanvas(v, x0, y0, cw, ch * 0.11);
+  await runScan(bottom, top);
+}
+function loadImageFile(file) {
+  return new Promise((res, rej) => { const url = URL.createObjectURL(file); const im = new Image(); im.onload = () => { URL.revokeObjectURL(url); res(im); }; im.onerror = () => rej(new Error('Could not read that photo')); im.src = url; });
+}
+async function scanFromFile(file) {
+  try {
+    const im = await loadImageFile(file);
+    const w = im.naturalWidth, h = im.naturalHeight;
+    const bottom = cropToCanvas(im, 0, h * 0.86, w, h * 0.14);
+    const top = cropToCanvas(im, 0, 0, w, h * 0.12);
+    await runScan(bottom, top);
+  } catch (e) { scanStatus(e.message, 'muted'); }
+}
+function parseBottomText(text) {
+  const t = String(text || '').replace(/[|\\]/g, '/').replace(/[oO]/g, m => m).replace(/\s+/g, ' ');
+  let num = null, total = null;
+  let m = t.match(/(\d{1,3})\s*\/\s*(\d{1,3})/);
+  if (m) { num = String(Number(m[1])); total = Number(m[2]); }
+  else { m = t.match(/\b(\d{1,3})\s+(\d{2,3})\b/); if (m) { num = String(Number(m[1])); total = Number(m[2]); } }
+  const codes = [...t.matchAll(/\b([A-Z]{2,4})\b/g)].map(x => x[1]).filter(c => !['HP', 'LV', 'TCG', 'EX', 'GX', 'VMAX', 'VSTAR', 'TM', 'THE'].includes(c));
+  return { num, total, codes };
+}
+function nameGuessFrom(text) {
+  const words = String(text || '').replace(/[^A-Za-z' ]+/g, ' ').split(/\s+/).filter(w => w.length >= 3 && !/^(basic|stage|evolves|from|hp)$/i.test(w));
+  return words.slice(0, 3).join(' ');
+}
+function bigrams(s) { const n = norm(s).replace(/ /g, ''); const out = new Map(); for (let i = 0; i < n.length - 1; i++) { const b = n.slice(i, i + 2); out.set(b, (out.get(b) || 0) + 1); } return out; }
+function similarity(a, b) {
+  const A = bigrams(a), B = bigrams(b); if (!A.size || !B.size) return 0;
+  let inter = 0; for (const [k, v] of A) inter += Math.min(v, B.get(k) || 0);
+  return 2 * inter / ([...A.values()].reduce((x, y) => x + y, 0) + [...B.values()].reduce((x, y) => x + y, 0));
+}
+async function runScan(bottomCanvas, topCanvas) {
+  if (SC.busy) return; SC.busy = true;
+  const btn = $('#scan-read'); if (btn) btn.disabled = true;
+  const cands = $('#scan-cands'); if (cands) cands.innerHTML = '';
+  try {
+    scanStatus('Reading…');
+    const w = await getWorker();
+    const [rb, rt] = await Promise.all([w.recognize(bottomCanvas), w.recognize(topCanvas)]);
+    const info = parseBottomText(rb.data?.text || '');
+    const nameGuess = nameGuessFrom(rt.data?.text || '');
+    if (!info.num && !nameGuess) { scanStatus('Could not read the number. Try again closer, or type it in the Add tab.', 'muted'); return; }
+    scanStatus(`Read ${info.num ? info.num + (info.total ? '/' + info.total : '') : 'no number'}${info.codes.length ? ' · ' + info.codes.join(' ') : ''}${nameGuess ? ' · "' + nameGuess + '"' : ''}. Finding matches…`);
+    const list = await scanCandidates({ ...info, nameGuess });
+    if (!list.length) { scanStatus('No match yet. Check the number, or add it by set and number.', 'muted'); return; }
+    scanStatus(`Tap the right card${list.length > 1 ? ' (' + list.length + ' possible)' : ''}:`);
+    if (cands) cands.innerHTML = list.map(c => { const src = imgSrc(c); const total = c.setOfficial || S.setsById.get(c.setId)?.cardCount?.official; return `<div class="list-item">${src ? `<img class="thumb" src="${esc(src)}" alt="">` : '<div class="thumb"></div>'}<div class="grow"><div class="name">${esc(c.name)}</div><div class="sub">${esc(c.setName || c.setId)} · <span class="mono">${esc(c.localId)}${total ? '/' + esc(total) : ''}</span>${c.rarity ? ' · ' + esc(c.rarity) : ''}</div></div><button class="btn sm primary" data-act="scan-pick" data-id="${esc(c.id)}">This one</button></div>`; }).join('');
+  } catch (e) { scanStatus(e.message, 'muted'); }
+  finally { SC.busy = false; if (btn) btn.disabled = false; }
+}
+async function scanCandidates({ num, total, codes, nameGuess }) {
+  const out = []; const seen = new Set();
+  const push = c => { if (c && !seen.has(c.id)) { seen.add(c.id); out.push(c); } };
+  if (num) {
+    let sets = total ? S.sets.filter(s => s.cardCount?.official === total || s.cardCount?.total === total) : [];
+    const byCode = codes.map(findSetByCode).filter(Boolean);
+    sets = [...byCode, ...sets.filter(s => !byCode.includes(s))];
+    if (!sets.length && !total && codes.length && S.online) { for (const c of codes) { const s = await resolveSetCode(c, { limit: 25 }); if (s) sets.push(s); } }
+    sets = [...new Set(sets)].sort((a, b) => b.order - a.order).slice(0, 6);
+    for (const s of sets) { try { push(await getCard(s.id, num)); } catch { try { push(await getCard(s.id, num.padStart(3, '0'))); } catch { } } }
+  }
+  if (nameGuess && (out.length < 3)) {
+    try {
+      const found = S.online ? await searchCardsByName(nameGuess.split(' ')[0]) : localSearch(nameGuess.split(' ')[0]);
+      let pool = found.filter(f => !num || f.localId === num || f.localId === num.padStart(3, '0'));
+      if (total) pool = pool.filter(f => { const s = S.setsById.get(f.setId); return !s || s.cardCount?.official === total || s.cardCount?.total === total; });
+      pool = pool.sort((a, b) => similarity(b.name, nameGuess) - similarity(a.name, nameGuess)).slice(0, 4);
+      for (const f of pool) { try { push(S.cards.get(f.id) || await getCardById(f.id)); } catch { } }
+    } catch { }
+  }
+  if (nameGuess) out.sort((a, b) => similarity(b.name, nameGuess) - similarity(a.name, nameGuess));
+  return out.slice(0, 6);
+}
+function scanPick(cardId) {
+  const c = S.cards.get(cardId); if (!c) return;
+  const u = S.ui.add; u.mode = 'set'; u.setId = c.setId; u.number = c.localId; u.card = c; u.error = ''; u.qty = 1;
+  closeSheet(); setView('add');
+}
+
+/* =====================================================================
+   Price refresh
+   ===================================================================== */
+async function refreshPrices(cardIds, { force = false, label = 'prices' } = {}) {
+  if (!S.online) { toast('You are offline'); return; }
+  const ids = [...new Set(cardIds)].filter(id => { const c = S.cards.get(id); return force || !c?.pricingAt || now() - c.pricingAt > PRICE_MAX_AGE; });
+  if (!ids.length) { toast('Prices are already fresh'); return; }
+  let done = 0, failed = 0;
+  toast(`Refreshing ${label} 0/${ids.length}…`, 60000);
+  const workers = Array.from({ length: 3 }, async () => { while (ids.length) { const id = ids.shift(); try { await refreshCard(id); } catch { failed++; } done++; if (done % 3 === 0) toast(`Refreshing ${label} ${done}/${done + ids.length}…`, 60000); } });
+  await Promise.all(workers);
+  toast(failed ? `Refreshed ${done - failed}, ${failed} failed` : `Refreshed ${done} card${done === 1 ? '' : 's'}`);
+  render();
+}
+
+/* =====================================================================
+   Settings + data
+   ===================================================================== */
+async function storageSummary() {
+  let est = null; try { est = await navigator.storage?.estimate?.(); } catch { }
+  return { sets: S.sets.length, cards: S.cards.size, images: S.images.size, owned: S.owned.size, decks: S.decks.size, usage: est?.usage || null, quota: est?.quota || null, persisted: await (navigator.storage?.persisted?.() || Promise.resolve(null)) };
+}
+function fmtBytes(n) { if (n == null) return '?'; if (n < 1e6) return Math.round(n / 1e3) + ' KB'; if (n < 1e9) return (n / 1e6).toFixed(1) + ' MB'; return (n / 1e9).toFixed(2) + ' GB'; }
+async function renderSettings() {
+  const el = $('#view-settings'); const st = S.settings;
+  const sw = (key, on) => `<button class="switch ${on ? 'on' : ''}" role="switch" aria-checked="${on}" data-act="toggle" data-key="${key}"></button>`;
+  const marks = ['F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'];
+  el.innerHTML = `
+    <h1>Settings</h1>
+    <div class="card-panel" style="margin-top:12px">
+      <h3>Prices</h3>
+      <div class="setting"><div class="txt"><b>Price source</b><span>Which market to show first. The other is used when the first has no data.</span></div>
+        <div class="seg"><button data-act="price-source" data-src="tcgplayer" class="${st.priceSource === 'tcgplayer' ? 'active' : ''}">TCGplayer $</button><button data-act="price-source" data-src="cardmarket" class="${st.priceSource === 'cardmarket' ? 'active' : ''}">Cardmarket €</button></div></div>
+      <div class="setting"><div class="txt"><b>Show prices</b><span>Hide every price and value if you only care about the binder.</span></div>${sw('showPrices', st.showPrices)}</div>
+    </div>
+    <div class="card-panel" style="margin-top:12px">
+      <h3>Decks</h3>
+      <div class="setting"><div class="txt"><b>Standard legal marks</b><span>Lowest regulation mark that is Standard legal. For the 2026 season that is H (H, I and J are legal). Bump it after each April rotation.</span></div>
+        <select class="input" id="min-mark" style="width:90px">${marks.map(m => `<option ${st.minMark === m ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
+      <div class="setting"><div class="txt"><b>Count owned copies by</b><span>Name: any print of the same card counts. Exact: only the exact set and number.</span></div>
+        <div class="seg"><button data-act="deck-match" data-mode="name" class="${st.deckMatch === 'name' ? 'active' : ''}">Name</button><button data-act="deck-match" data-mode="exact" class="${st.deckMatch === 'exact' ? 'active' : ''}">Exact</button></div></div>
+    </div>
+    <div class="card-panel" style="margin-top:12px">
+      <h3>Offline</h3>
+      <div class="setting"><div class="txt"><b>Keep card images offline</b><span>Stores a small image for every card you add (about 20 KB each) so the binder looks right with no signal.</span></div>${sw('cacheImages', st.cacheImages)}</div>
+      <div class="setting"><div class="txt"><b>Storage</b><span id="storage-line">Checking…</span></div><button class="btn sm" data-act="cache-all-images" ${S.online ? '' : 'disabled'}>Cache missing images</button></div>
+      <div class="setting"><div class="txt"><b>Set list</b><span>${S.sets.length} sets known. Refresh after a new expansion releases.</span></div><button class="btn sm" data-act="refresh-sets" ${S.online ? '' : 'disabled'}>Refresh sets</button></div>
+    </div>
+    <div class="card-panel" style="margin-top:12px">
+      <h3>Your data</h3>
+      <div class="setting"><div class="txt"><b>Back up</b><span>Downloads a JSON file with your binder, decks and cached card data. Keep one somewhere safe: browsers can evict site data.</span></div><button class="btn sm primary" data-act="backup">Back up</button></div>
+      <div class="setting"><div class="txt"><b>Restore</b><span>Merge a backup file into this device.</span></div><label class="btn sm" style="cursor:pointer">Choose file<input type="file" id="restore-file" accept="application/json,.json" class="hidden"></label></div>
+      <div class="setting"><div class="txt"><b>Spreadsheet export</b><span>CSV of every card and finish you own, with prices.</span></div><button class="btn sm" data-act="export-csv">Export CSV</button></div>
+      <div class="setting"><div class="txt"><b>Clear cached card data</b><span>Removes cached card details and images, keeps your binder and decks. Cards reload next time you are online.</span></div><button class="btn sm ghost" data-act="clear-cache">Clear cache</button></div>
+      <div class="setting"><div class="txt"><b>Erase everything</b><span>Deletes the binder, decks, settings and cache on this device.</span></div><button class="btn sm danger" data-act="erase-all">Erase</button></div>
+    </div>
+    <div class="card-panel about" style="margin-top:12px">
+      <h3>About</h3>
+      <p><b>Binder</b> keeps your collection in this browser's local database. Nothing is uploaded anywhere. Card details and prices come from the community run TCGdex API, which mirrors TCGplayer and Cardmarket market data. When you are offline everything you have already added keeps working; new lookups, name searches and price refreshes need a connection.</p>
+      <p>To use it like an app on your phone, open it from a web address (not a file), then use "Add to Home Screen" in Safari or "Install app" in Chrome. It also works opened straight from the file on your Mac.</p>
+      <p class="small">Standard rules checked: 60 cards, max 4 with the same name (basic Energy exempt), one ACE SPEC, one Radiant, one of each Prism Star, at least one Basic Pokémon, and regulation mark rotation. Promo legality quirks and bans are not tracked, so check the official list before an event.</p>
+    </div>`;
+  $('#min-mark').addEventListener('change', async e => { st.minMark = e.target.value; await saveSettings(); toast('Standard marks updated'); });
+  $('#restore-file').addEventListener('change', e => { const f = e.target.files?.[0]; if (f) restoreBackup(f); });
+  storageSummary().then(s => { const l = $('#storage-line'); if (l) l.textContent = `${s.cards} cards and ${s.images} images cached${s.usage != null ? ` · using ${fmtBytes(s.usage)}` : ''}${s.persisted === true ? ' · protected from eviction' : (s.persisted === false ? ' · not yet marked persistent' : '')}.`; });
+}
+function download(name, text, type = 'application/json') {
+  const blob = new Blob([text], { type }); const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+function backupJson() {
+  return JSON.stringify({ app: 'binder', version: 1, exportedAt: new Date().toISOString(), settings: S.settings, owned: [...S.owned.values()], decks: [...S.decks.values()], cards: [...S.cards.values()] }, null, 0);
+}
+async function restoreBackup(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    if (data.app !== 'binder' || !Array.isArray(data.owned)) throw new Error('That is not a Binder backup file');
+    const cards = (data.cards || []).filter(c => c?.id).map(c => { const cur = S.cards.get(c.id); return cur && (cur.fetchedAt || 0) > (c.fetchedAt || 0) ? cur : c; });
+    await dbPutMany('cards', cards); cards.forEach(c => S.cards.set(c.id, c));
+    const owned = data.owned.filter(o => o?.key && o.cardId); await dbPutMany('owned', owned); owned.forEach(o => S.owned.set(o.key, o));
+    const decks = (data.decks || []).filter(d => d?.id); await dbPutMany('decks', decks); decks.forEach(d => S.decks.set(d.id, d));
+    if (data.settings) { S.settings = { ...DEFAULT_SETTINGS, ...data.settings }; await saveSettings(); }
+    toast(`Restored ${owned.length} binder entries and ${decks.length} decks`);
+    render(); if (S.online) cacheMissingImages();
+  } catch (e) { toast('Restore failed: ' + e.message, 4000); }
+}
+function csvCell(v) { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function exportCsv() {
+  const rows = [['Card', 'Set', 'Set code', 'Number', 'Rarity', 'Type', 'Finish', 'Qty', 'Condition', 'Price each', 'Currency', 'Price source', 'Regulation mark', 'Card ID', 'Note']];
+  for (const o of [...S.owned.values()].sort((a, b) => b.updatedAt - a.updatedAt)) {
+    const c = S.cards.get(o.cardId); if (!c) continue; const p = priceFor(c, o.variant);
+    rows.push([c.name, c.setName, setCode(c.setId), c.localId, c.rarity || '', c.category, variantLabel(o.variant), o.qty, o.condition || '', p ? p.value.toFixed(2) : '', p?.unit || '', p?.source || '', c.regulationMark || '', c.id, o.note || '']);
+  }
+  download(`binder-${new Date().toISOString().slice(0, 10)}.csv`, rows.map(r => r.map(csvCell).join(',')).join('\n'), 'text/csv');
+}
+async function clearCache() {
+  if (!confirm('Clear cached card details and images? Your binder and decks stay.')) return;
+  await dbClear('cards'); await dbClear('images'); S.cards.clear(); S.images.clear();
+  toast('Cache cleared. Cards reload when you open them online.'); render();
+}
+async function eraseAll() {
+  if (!confirm('Erase the binder, decks, settings and cache on this device? This cannot be undone.')) return;
+  if (!confirm('Really erase everything? Back up first if you are not sure.')) return;
+  for (const s of ['cards', 'owned', 'decks', 'sets', 'images', 'meta']) await dbClear(s);
+  location.reload();
+}
+
+/* =====================================================================
+   Events
+   ===================================================================== */
+const ACTIONS = {
+  nav: el => setView(el.dataset.view),
+  'sheet-backdrop': (el, e) => { if (e.target === el) closeSheet(); },
+  'close-sheet': () => closeSheet(),
+  'open-card': el => openCardDetail(el.dataset.id),
+  'refresh-card': async el => { try { toast('Refreshing…', 5000); await refreshCard(el.dataset.id); rerenderDetail(el.dataset.id); toast('Refreshed'); } catch (e) { toast(e.message); } },
+  'refresh-all-prices': () => refreshPrices([...S.owned.values()].map(o => o.cardId), { force: true, label: 'binder prices' }),
+  'add-to-deck': el => openDeckPicker(el.dataset.id),
+  'picker-add': async el => { const d = S.decks.get(el.dataset.deck); if (!d) return; const cur = d.cards.find(c => c.cardId === el.dataset.id); await deckSetQty(d, el.dataset.id, (cur?.qty || 0) + 1); toast(`Added to ${d.name}`); openDeckPicker(el.dataset.id); },
+  'picker-new': async el => { const c = S.cards.get(el.dataset.id); const d = await newDeck(c ? c.name + ' deck' : 'New deck'); await deckSetQty(d, el.dataset.id, 1); closeSheet(); S.ui.deck.id = d.id; setView('decks'); },
+  'own-bump': async el => { await bumpOwned(el.dataset.id, el.dataset.variant, Number(el.dataset.d)); const sb = sheetBody(); if (sb) rerenderDetail(el.dataset.id); if (S.view === 'add') renderRecent(); if (S.view === 'collection') renderCollection(); if (S.view === 'decks') renderDecks(); },
+  'remove-card': async el => { const c = S.cards.get(el.dataset.id); if (!confirm(`Remove every copy of ${c?.name || 'this card'} from your binder?`)) return; for (const o of ownedEntries(el.dataset.id)) await setOwned(el.dataset.id, o.variant, 0); closeSheet(); render(); toast('Removed'); },
+  'add-mode': el => { S.ui.add.mode = el.dataset.mode; S.ui.add.error = ''; renderAdd(); },
+  'open-scanner': () => openScanner(),
+  'scan-read': () => scanFromCamera(),
+  'scan-pick': el => scanPick(el.dataset.id),
+  lookup: () => lookupCard(),
+  'pick-variant': el => { S.ui.add.variant = el.dataset.variant; $$('#variant-seg button').forEach(b => b.classList.toggle('active', b === el)); },
+  'add-qty': el => { S.ui.add.qty = clamp(S.ui.add.qty + Number(el.dataset.d), 1, 99); const q = $('#add-qty'); if (q) q.textContent = S.ui.add.qty; const b = $('[data-act="commit-add"]'); if (b) b.textContent = `Add ${S.ui.add.qty} to binder`; },
+  'commit-add': () => commitAdd(),
+  'name-search': () => nameSearch(),
+  'pick-result': el => pickResult(el.dataset.id),
+  'new-deck': async () => { const d = await newDeck(); S.ui.deck.id = d.id; S.ui.deck.q = ''; S.ui.deck.results = []; renderDecksFull(); setTimeout(() => { const n = $('#deck-name'); if (n) { n.focus(); n.select(); } }, 50); },
+  'open-deck': el => { S.ui.deck.id = el.dataset.id; S.ui.deck.q = ''; S.ui.deck.results = []; renderDecksFull(); window.scrollTo({ top: 0 }); },
+  'close-deck': () => { S.ui.deck.id = null; renderDecks(); },
+  'deck-format': async el => { const d = S.decks.get(S.ui.deck.id); if (!d) return; d.format = el.dataset.format; await saveDeck(d); renderDecks(); },
+  'deck-bump': async el => { const d = S.decks.get(S.ui.deck.id); if (!d) return; const cur = d.cards.find(c => c.cardId === el.dataset.id); await deckSetQty(d, el.dataset.id, (cur?.qty || 0) + Number(el.dataset.d)); renderDecks(); },
+  'pool-mode': el => { S.ui.deck.pool = el.dataset.mode; S.ui.deck.q = ''; renderDecksFull(); },
+  'pool-search': () => poolSearch(),
+  'pool-add': el => poolAdd(el.dataset.id),
+  'deck-export': el => openDeckExport(S.decks.get(el.dataset.id)),
+  'deck-import': el => openDeckImport(S.decks.get(el.dataset.id)),
+  'run-import': el => runImport(el.dataset.id),
+  'deck-menu': el => openDeckMenu(S.decks.get(el.dataset.id)),
+  'deck-duplicate': async el => { const d = S.decks.get(el.dataset.id); if (!d) return; const c = await newDeck(d.name + ' copy', d.format); c.cards = d.cards.map(x => ({ ...x })); c.notes = d.notes; await saveDeck(c); closeSheet(); S.ui.deck.id = c.id; renderDecksFull(); toast('Duplicated'); },
+  'deck-refresh-prices': el => { const d = S.decks.get(el.dataset.id); if (d) { closeSheet(); refreshPrices(d.cards.map(c => c.cardId), { force: true, label: 'deck prices' }); } },
+  'deck-delete': async el => { const d = S.decks.get(el.dataset.id); if (!d || !confirm(`Delete "${d.name}"?`)) return; await deleteDeck(d.id); closeSheet(); S.ui.deck.id = null; renderDecks(); toast('Deck deleted'); },
+  'copy-export': async () => { const t = $('#export-text'); if (!t) return; try { await navigator.clipboard.writeText(t.value); toast('Copied'); } catch { t.select(); document.execCommand?.('copy'); toast('Copied'); } },
+  'download-export': el => { const t = $('#export-text'); if (t) download((el.dataset.name || 'deck').replace(/[^\w-]+/g, '_') + '.txt', t.value, 'text/plain'); },
+  toggle: async el => { const k = el.dataset.key; S.settings[k] = !S.settings[k]; await saveSettings(); renderSettings(); if (k === 'cacheImages' && S.settings[k] && S.online) cacheMissingImages(); },
+  'price-source': async el => { S.settings.priceSource = el.dataset.src; await saveSettings(); renderSettings(); },
+  'deck-match': async el => { S.settings.deckMatch = el.dataset.mode; await saveSettings(); renderSettings(); },
+  'cache-all-images': async () => { toast('Caching images…', 30000); const n = await cacheMissingImages(); toast(`Cached ${n} image${n === 1 ? '' : 's'}`); renderSettings(); },
+  'refresh-sets': async () => { try { await ensureSets({ force: true }); toast(`${S.sets.length} sets loaded`); renderSettings(); } catch (e) { toast(e.message); } },
+  backup: () => download(`binder-backup-${new Date().toISOString().slice(0, 10)}.json`, backupJson()),
+  'export-csv': () => exportCsv(),
+  'clear-cache': () => clearCache(),
+  'erase-all': () => eraseAll(),
+};
+function bindEvents() {
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-act]'); if (!el) return;
+    const fn = ACTIONS[el.dataset.act]; if (!fn) return;
+    if (el.tagName === 'SELECT' || el.tagName === 'INPUT') return;
+    Promise.resolve(fn(el, e)).catch(err => { console.error(err); toast(err.message || 'Something went wrong'); });
+  });
+  document.addEventListener('change', async e => {
+    const el = e.target.closest('[data-act="own-cond"]'); if (!el) return;
+    const rec = S.owned.get(ownedKey(el.dataset.id, el.dataset.variant)); if (rec) { rec.condition = el.value; rec.updatedAt = now(); await dbPut('owned', rec); }
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#sheet-root .sheet')) closeSheet(); });
+  window.addEventListener('online', () => { S.online = true; updateNet(); refreshSetsIfStale().then(() => { if (S.view === 'add') renderAddPanel(); }); toast('Back online'); });
+  window.addEventListener('offline', () => { S.online = false; updateNet(); toast('Offline: your binder still works'); });
+}
+function registerSW() {
+  if (!('serviceWorker' in navigator) || !/^https?:/.test(location.protocol)) return;
+  navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service worker not registered:', e.message));
+}
+async function boot() {
+  try { await loadState(); }
+  catch (e) { console.error(e); document.querySelector('main')?.insertAdjacentHTML('afterbegin', `<div class="msg bad" style="margin-bottom:12px">Local storage is unavailable (${esc(e.message)}). The app needs IndexedDB; private browsing on some browsers blocks it.</div>`); }
+  bindEvents(); render();
+  if (S.online) refreshSetsIfStale().then(() => { if (S.view === 'add') renderAddPanel(); });
+  registerSW();
+}
+window.Binder = { S, getCard, getCardById, refreshCard, searchCardsByName, analyzeDeck, parseDeckText, deckToText, importDeckText, priceFor, normalizeCard, standardLegality, expandedLegal, checkReprint, needsReprintCheck, textKey, ensureSets, getSetDetail, resolveSetCode, setOwned, bumpOwned, newDeck, deckSetQty, backupJson, exportCsv, parseBottomText, scanCandidates, render, setView, DEFAULT_SETTINGS };
+boot();
+</script>
+</body>
+</html>
