@@ -2,7 +2,7 @@
 
 An offline first Pokémon TCG binder and deck workbench. One HTML file, no accounts, no server, no subscription. Your collection lives in your browser's local database (IndexedDB) and works with no signal; card data and market prices come from the free, open source TCGdex API whenever you are online.
 
-## What is in the folder
+## What is in the folder 
 
 | File | Purpose |
 |---|---|
